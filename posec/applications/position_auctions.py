@@ -99,6 +99,9 @@ class NoExternalityPositionAuction(posec.ProjectedMechanism):
             return self.reserve
         return self.reserve / self.q(theta_i)
 
+    def makeBid(self,theta_i,b,eb):
+        return _WeightedBid(b,eb)
+
     def A(self, setting, i, theta_i):
         if isinstance(theta_i.value, tuple):
             maxBid = int(math.ceil(max(theta_i.value)))
@@ -109,11 +112,13 @@ class NoExternalityPositionAuction(posec.ProjectedMechanism):
         if 0 not in bids:
             bids = [0] + bids
         if self.pricing == "Anchor":
-            return [_WeightedBid(b, self.q(theta_i) * (b - self.reserve)) for b in bids]
+            return [self.makeBid(theta_i, b, self.q(theta_i) * (b - self.reserve)) for b in bids]
         else:
-            return [_WeightedBid(b, self.q(theta_i) * b) for b in bids]
+            return [self.makeBid(theta_i, b, self.q(theta_i) * b) for b in bids]
 
-    def positions(self, i, theta_i, a_N):
+    def projectedAllocations(self, i, theta_i, a_N):
+        ''' Returns a list of positions (all the positions that can happen depending on how tie-breaking goes)
+        the last element in the list means losing every tie-break '''
         higher = a_N.sum(
             [a for a in a_N.actions if a.effective_bid > a_N[i].effective_bid])
         if self.tieBreaking == "Uniform":
@@ -145,15 +150,18 @@ class NoExternalityPositionAuction(posec.ProjectedMechanism):
             # FIXME: Rounding
             return ppc
 
+    def makeOutcome(self,alloc,price):
+        return _NoExternalityOutcome(alloc, price)
+        
     def M(self, setting, i, theta_i, a_N):
-        positions = self.positions(i, theta_i, a_N)
+        projectedAllocations = self.projectedAllocations(i, theta_i, a_N)
         o = []
         ppc = self.ppc(i, theta_i, a_N)
-        for p in positions:
-            if p == positions[-1]:
-                o.append(_NoExternalityOutcome(p, ppc))
+        for p in projectedAllocations:
+            if p == projectedAllocations[-1]:
+                o.append(self.makeOutcome(p, ppc))
             else:
-                o.append(_NoExternalityOutcome(p, a_N[i].bid))
+                o.append(self.makeOutcome(p, a_N[i].bid))
         return posec.UniformDistribution(o)
 
 
