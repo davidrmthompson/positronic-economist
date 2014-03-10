@@ -34,3 +34,10 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+
+# Action-graph games
+*.agg
+*.bagg
+*_agg
+*_bagg
+
