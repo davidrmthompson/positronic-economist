@@ -65,6 +65,13 @@ def subsetPermutations(S):
     return output
 
 
+def product(S):
+    p = 1.0
+    for e in S:
+        p *= e
+    return p
+
+
 def intToBitVector(n, minBits=0):
     output = []
     while n > 0:
@@ -81,6 +88,6 @@ def powerSet(S):
     output = []
     for i in range(int(math.pow(2, n))):
         bv = intToBitVector(i, n)
-        subset = set([S[j] for j in range(n) if bv[j] == 1])
+        subset = list([S[j] for j in range(n) if bv[j] == 1])
         output.append(subset)
     return output
