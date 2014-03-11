@@ -99,8 +99,8 @@ class NoExternalityPositionAuction(posec.ProjectedMechanism):
             return self.reserve
         return self.reserve / self.q(theta_i)
 
-    def makeBid(self,theta_i,b,eb):
-        return _WeightedBid(b,eb)
+    def makeBid(self, theta_i, b, eb):
+        return _WeightedBid(b, eb)
 
     def A(self, setting, i, theta_i):
         if isinstance(theta_i.value, tuple):
@@ -150,9 +150,9 @@ class NoExternalityPositionAuction(posec.ProjectedMechanism):
             # FIXME: Rounding
             return ppc
 
-    def makeOutcome(self,alloc,price):
+    def makeOutcome(self, alloc, price):
         return _NoExternalityOutcome(alloc, price)
-        
+
     def M(self, setting, i, theta_i, a_N):
         projectedAllocations = self.projectedAllocations(i, theta_i, a_N)
         o = []
