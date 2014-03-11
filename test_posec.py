@@ -157,5 +157,18 @@ class ApplicationExamples(unittest.TestCase):
                 agg.saveToFile("applications_%s_%s.agg" %
                                (mech_name, setting_name))
 
+    def test_position_auctions_externalities(self):
+        from posec.applications import position_auctions_externalities
+        V = [[1, 1], [2, 2]]
+        CTRs = [[1.0, 0.5], [1.0, 0.1]]
+        qualities = [1.0, 1.0]
+        continuations = [0.25, 0.5]
+
+        setting = position_auctions_externalities.HybridSetting(
+            V, CTRs, qualities, continuations)
+        mech = position_auctions_externalities.ExternalityPositionAuction(
+            pricing='GFP', tieBreaking="Lexigraphic")
+        agg = makeAGG(setting, mech)
+        agg.saveToFile("applications_GFP_hybrid.agg")
 if __name__ == '__main__':
     unittest.main()
