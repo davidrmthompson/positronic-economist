@@ -7,5 +7,8 @@ setup(
     name='The Postronic Economist',
     version="1",
     description='A computational system for analyzing economic mechanisms',
-    author='daveth@cs.ubc.ca',
+    author='David R. M. Thompson',
+    author_email='daveth@cs.ubc.ca',
+    url='https://github.com/davidrmthompson/positronic-economist',
+    packages=['posec']
 )
