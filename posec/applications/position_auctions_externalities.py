@@ -1,11 +1,11 @@
-from collections import namedtuple,Counter
+from collections import namedtuple, Counter
 from posec import mathtools
 from position_auctions import Permutations, _PositionAuctionOutcome, NoExternalityPositionAuction
 import math
 import posec
 import string
 
-# FIXME: I'm overloading externality type as a word. I want something more general than continuation probability 
+# FIXME: I'm overloading externality type as a word. I want something more general than continuation probability
 # (to allow for the rich externality model), but that's not it.
 
 _ExternalityOutcome = namedtuple(
@@ -20,7 +20,8 @@ class HybridSetting(posec.ProjectedSetting):
 
     def __init__(self, valuations, ctrs, qualities, continuation_probabilities):
         self.n = len(valuations)
-        projectedAllocations = mathtools.powerSet(continuation_probabilities,Counter)
+        projectedAllocations = mathtools.powerSet(
+            continuation_probabilities, Counter)
         allocations = Permutations(range(self.n))
         payments = posec.RealSpace(self.n)
         self.O = posec.CartesianProduct(
@@ -44,6 +45,7 @@ class HybridSetting(posec.ProjectedSetting):
         ctr = self.ctr(i, theta, projectedAllocation)
         v = theta[i].value[p]
         return ctr * (v - ppc)
+
 
 class ExternalityPositionAuction(NoExternalityPositionAuction):
 
@@ -71,17 +73,21 @@ class ExternalityPositionAuction(NoExternalityPositionAuction):
                     m -= 1
                 equal_externality_types[theta_j] += m
             print equal_externality_types
-            subsets = mathtools.powerSet(list(equal_externality_types.elements()),Counter)
+            subsets = mathtools.powerSet(
+                list(equal_externality_types.elements()), Counter)
             return [higher_externality_types + subset for subset in subsets]
         raise BaseException("Lexigraphic tie-breaking is not working yet")
 
-#### GENERATOR FUNCTIONS ####
+# GENERATOR FUNCTIONS ####
+
 
 class _CascadeOrHybridFactory:
-    def __init__(self,alpha_function,value_genrator_function):
+
+    def __init__(self, alpha_function, value_genrator_function):
         self.alpha_function = alpha_function
         self.value_genrator_function = value_genrator_function
-    def __call__(self,n,m,k,seed=None):
+
+    def __call__(self, n, m, k, seed=None):
         import random as r
         r.seed(seed)
         valuations = []
@@ -89,36 +95,41 @@ class _CascadeOrHybridFactory:
         qualities = []
         continuation_probabilities = []
         for i in range(n):
-            value, quality = self.value_genrator_function(r,k)
-            valuations.append([value]*n)
+            value, quality = self.value_genrator_function(r, k)
+            valuations.append([value] * n)
             qualities.append(quality)
-            ctrs.append([quality*alpha for alpha in self.alpha_function(n,m,r)])
+            ctrs.append(
+                [quality * alpha for alpha in self.alpha_function(n, m, r)])
             continuation_probabilities.append(r.random())
         return HybridSetting(valuations, ctrs, qualities, continuation_probabilities)
 
-def _uni_distro(r,k):
-    return r.random()*k,r.random()
 
-def _make_flat_alpha(n,m,r):
-    return [1.0]*m+[1.0]*(n-m)
-    
-def _make_UNI_alpha(n,m,r):
+def _uni_distro(r, k):
+    return r.random() * k, r.random()
+
+
+def _make_flat_alpha(n, m, r):
+    return [1.0] * m + [1.0] * (n - m)
+
+
+def _make_UNI_alpha(n, m, r):
     alphaPrime = 1.0
     alpha = []
-    for i in range(m): 
-            a = alphaPrime*r.random()
+    for i in range(m):
+            a = alphaPrime * r.random()
             alpha.append(a)
             alphaPrime = a
-    for i in range(n-m):
+    for i in range(n - m):
         alpha.append(0.0)
     return alpha
 
-def _make_LP_alpha(n,m,r):
-    a = 1.0+0.5*r.random() # Polynomial decay factor
+
+def _make_LP_alpha(n, m, r):
+    a = 1.0 + 0.5 * r.random()  # Polynomial decay factor
     alpha = []
     for i in range(m):
-        alpha.append(math.pow(i+1,-a))
-    for i in range(n-m):
+        alpha.append(math.pow(i + 1, -a))
+    for i in range(n - m):
         alpha.append(0.0)
     return alpha
 
@@ -129,7 +140,8 @@ cascade_LN = _CascadeOrHybridFactory(_make_flat_alpha, _ln_distro)
 hybrid_UNI = _CascadeOrHybridFactory(_make_UNI_alpha, _uni_distro)
 hybrid_LN = _CascadeOrHybridFactory(_make_LP_alpha, _ln_distro)
 
-GENERATORS = {"cascade_UNI":cascade_UNI, "cascase_LN": cascade_LN, "hybrid_UNI":hybrid_UNI, "hybrid_LN":hybrid_LN}
+GENERATORS = {"cascade_UNI": cascade_UNI, "cascase_LN":
+              cascade_LN, "hybrid_UNI": hybrid_UNI, "hybrid_LN": hybrid_LN}
 
 # def richExternality(n,m,k,seed):
 #     import random as r
@@ -163,7 +175,7 @@ GENERATORS = {"cascade_UNI":cascade_UNI, "cascase_LN": cascade_LN, "hybrid_UNI":
 #         t.ctrDict = richExternalityDictionary(n,r)
 #     return setting
 
-        
+
 # GENERATORS = {
 #     "BHN-LN":BHN_LN,
 #     "CAS-LN":cascade_LN,"V-LN":LP,"BSS-LN":BSS_LN,"EOS-LN":EOS_LN,"EOS":EOS,"BHN":BHN,"V":Varian,"BSS":BSS,"CAS":CascadeSetting,

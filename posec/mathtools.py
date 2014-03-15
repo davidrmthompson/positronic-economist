@@ -82,7 +82,8 @@ def intToBitVector(n, minBits=0):
         output = [0] + output
     return output
 
-def powerSet(S,cast_fn=list):
+
+def powerSet(S, cast_fn=list):
     n = len(S)
     output = []
     for i in range(int(math.pow(2, n))):
