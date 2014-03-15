@@ -82,12 +82,11 @@ def intToBitVector(n, minBits=0):
         output = [0] + output
     return output
 
-
-def powerSet(S):
+def powerSet(S,cast_fn=list):
     n = len(S)
     output = []
     for i in range(int(math.pow(2, n))):
         bv = intToBitVector(i, n)
-        subset = list([S[j] for j in range(n) if bv[j] == 1])
+        subset = cast_fn([S[j] for j in range(n) if bv[j] == 1])
         output.append(subset)
     return output
