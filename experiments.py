@@ -127,7 +127,7 @@ def gsp(n, seed=None):
 
 
 def bbsi_check(n_players, seed, fn):
-    name = "%s_%d_%d" % (n_players, seed, fn.__name__)
+    name = "%s_%d_%d" % (fn.__name__, n_players, seed)
     print name
     setting, m = fn(n_players, seed)
     metrics = dict(n_players=n_players, seed=seed, game=fn.__name__)
