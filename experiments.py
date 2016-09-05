@@ -132,7 +132,7 @@ def bbsi_check(n_players, seed, fn):
     setting, m = fn(n_players, seed)
     metrics = dict(n_players=n_players, seed=seed, game=fn.__name__)
     agg = makeAGG(setting, m, bbsi_level=2, metrics=metrics)
-    agg.saveToFile("%s.bagg" % name)
+    agg.saveToFile("baggs/%s/%s.bagg" % fn.__name__.upper(), name)
     return metrics
 
 if __name__ == '__main__':
@@ -140,7 +140,7 @@ if __name__ == '__main__':
     parser.add_argument('--qname', type=str, help="redis queue", required=True)
     parser.add_argument('--host', type=str, help="redis host", required=True)
     parser.add_argument('--port', type=int, help="redis port", required=True)
-    parser.add_argument('--file', type=int, help="output file", required=True)
+    parser.add_argument('--file', type=str, help="output file", required=True)
     args = parser.parse_args()
     r = redis.StrictRedis(host=args.host, port=args.port)
     q = args.qname

@@ -1,9 +1,9 @@
 ''' This is strictly for no-externality position auctions. '''
-
-
 from collections import namedtuple
 import posec
 import string
+import random as r
+import math
 
 
 class Permutations:
@@ -14,7 +14,7 @@ class Permutations:
 
     def __contains__(self, element):
         try:
-            if self.lengths != None:
+            if self.lengths is not None:
                 if len(element) not in self.lengths:  # Unallowed length
                     return False
             if len(element) != len(set(element)):  # Duplicate entries
@@ -64,7 +64,7 @@ class NoExternalitySetting(posec.ProjectedSetting):
 
     def u(self, i, theta, po, a_i):
         p = po.my_position
-        if p == None:
+        if p is None:
             return 0.0
         ppc = po.my_ppc
         ctr = theta[i].ctr[p]
@@ -73,23 +73,22 @@ class NoExternalitySetting(posec.ProjectedSetting):
 
 _WeightedBid = namedtuple("WeightedBid", ["bid", "effective_bid"])
 
-import math
 
 
 class NoExternalityPositionAuction(posec.ProjectedMechanism):
 
     def __init__(self, reserve=1, squashing=1.0, reserveType="UWR", rounding=None, tieBreaking="Uniform", pricing="GSP"):
-        self.reserve = reserve  # DONE
-        self.squashing = squashing  # DONE
+        self.reserve = reserve
+        self.squashing = squashing
         assert reserveType in ["UWR", "QWR"]
-        self.reserveType = reserveType  # DONE
+        self.reserveType = reserveType
         self.rounding = rounding
         assert tieBreaking in ["Uniform", "Lexigraphic"]
-        self.tieBreaking = tieBreaking  # DONE
+        self.tieBreaking = tieBreaking
         assert pricing in ["GSP", "GFP", "Anchor"]
         if pricing == "Anchor":
             assert reserveType == "UWR"
-        self.pricing = pricing  # DONE
+        self.pricing = pricing
 
     def q(self, theta_i):
         return math.pow(theta_i.quality, self.squashing)
@@ -136,7 +135,7 @@ class NoExternalityPositionAuction(posec.ProjectedMechanism):
         if self.pricing == "GSP":
             nextbid = a_N.max(
                 [a for a in a_N.actions if a.effective_bid < a_N[i].effective_bid], lambda x: a.effective_bid)
-            if nextbid == None:
+            if nextbid is None:
                 return self.reservePPC(i, theta_i)
             ppc = max([nextbid / self.q(theta_i), self.reservePPC(i, theta_i)])
             # FIXME: Rounding
@@ -144,7 +143,7 @@ class NoExternalityPositionAuction(posec.ProjectedMechanism):
         if self.pricing == "Anchor":
             nextbid = a_N.max(
                 [a for a in a_N.actions if a.effective_bid < a_N[i].effective_bid], lambda x: a.effective_bid)
-            if nextbid == None:
+            if nextbid is None:
                 return self.reserve
             ppc = nextbid / self.q(theta_i) + self.reserve
             # FIXME: Rounding
@@ -190,7 +189,7 @@ Makes to change to quality scores. '''
             tuple(value), tuple(ctr), quality)
 
 
-def makeAlpha(n, m, r):
+def makeAlpha(n, m):
     alphaPrime = 1.0
     alpha = []
     for i in range(m):
@@ -202,7 +201,7 @@ def makeAlpha(n, m, r):
     return alpha
 
 
-def makeLNAlpha(n, m, r):
+def makeLNAlpha(n, m):
     a = 1.0 + 0.5 * r.random()  # Polynomial decay factor
     alpha = []
     for i in range(m):
@@ -213,13 +212,12 @@ def makeLNAlpha(n, m, r):
 
 
 def EOS(n, m, k, seed=None):
-    import random as r
     r.seed(seed)
     beta = r.random()
     values = []
     ctrs = []
     qualities = []
-    alpha = makeAlpha(n, m, r)
+    alpha = makeAlpha(n, m)
     for i in range(n):
         value = r.random() * k
         values.append(tuple([value] * n))
@@ -229,9 +227,8 @@ def EOS(n, m, k, seed=None):
 
 
 def Varian(n, m, k, seed=None):
-    import random as r
     r.seed(seed)
-    alpha = makeAlpha(n, m, r)
+    alpha = makeAlpha(n, m)
     values = []
     ctrs = []
     qualities = []
@@ -245,7 +242,6 @@ def Varian(n, m, k, seed=None):
 
 
 def BHN(n, m, k, seed=None):
-    import random as r
     r.seed(seed)
     alpha = [1.0]
     convAlpha = [1.0]
@@ -283,7 +279,6 @@ def __rankNormalize(r, m):
 
 
 def BSS(n, m, k, seed=None):
-    import random as r
     r.seed(seed)
     C = 1.0
     alpha = [(0.1 * math.pow(2.0 / 3, i / 2.0)) for i in range(m)]
@@ -307,9 +302,8 @@ def BSS(n, m, k, seed=None):
 
 
 def BHN_LN(n, m, k, seed=None):
-    import random as r
     r.seed(seed)
-    alpha = makeLNAlpha(n, m, r)
+    alpha = makeLNAlpha(n, m)
     convAlpha = [1.0]
     for i in range(1, m):
         maxIncrease = alpha[i - 1] * convAlpha[
@@ -325,7 +319,7 @@ def BHN_LN(n, m, k, seed=None):
     ctrs = []
     qualities = []
     for i in range(n):
-        v, beta = LNdistro(r, k)
+        v, beta = LNdistro(k)
         convBeta = r.random()
         qualities.append(beta)
         ctrs.append(tuple([beta * a for a in alpha]))
@@ -333,16 +327,16 @@ def BHN_LN(n, m, k, seed=None):
     return NoExternalitySetting(values, ctrs, qualities)
 
 
-def gauss2(rand, rho):
+def gauss2(rho):
     ''' Sample from a 2D Gaussian (with correlation rho) '''
     mu = 0.0, 0.0
     sigma = ((1.0, rho), (rho, 1.0))
     assert len(mu) == 2
     assert len(sigma) == 2
-    x0 = rand.gauss(mu[0], sigma[0][0])
+    x0 = r.gauss(mu[0], sigma[0][0])
     mu1 = mu[1] + (x0 - mu[0]) * sigma[1][0] / sigma[0][0]
     sigma1 = sigma[1][1] - sigma[1][0] * sigma[0][1] / sigma[0][0]
-    x1 = rand.gauss(mu1, sigma1)
+    x1 = r.gauss(mu1, sigma1)
     return x0, x1
 
 LN_CORR = 0.4
@@ -353,23 +347,22 @@ except:
     LN_params = [0.0, 1.0, 0.0, 1.0]
 
 
-def LNdistro(rand, k):
+def LNdistro(k):
     global LN_CORR, LN_params
-    x0, x1 = gauss2(rand, LN_CORR)
+    x0, x1 = gauss2(LN_CORR)
     bid = math.exp((x0 * LN_params[1]) + LN_params[0])
     quality = math.exp((x1 * LN_params[3]) - LN_params[2])
     return bid, quality
 
 
 def LP(n, m, k, seed=None):
-    import random as r
     r.seed(seed)
-    alpha = makeLNAlpha(n, m, r)
+    alpha = makeLNAlpha(n, m)
     values = []
     ctrs = []
     qualities = []
     for i in range(n):
-        value, beta = LNdistro(r, k)
+        value, beta = LNdistro(k)
         values.append(tuple([value] * n))
         ctrs.append(tuple([alpha[i] * beta for i in range(n)]))
         qualities.append(beta)
@@ -377,15 +370,14 @@ def LP(n, m, k, seed=None):
 
 
 def EOS_LN(n, m, k, seed=None):
-    import random as r
     r.seed(seed)
     beta = r.random()
     values = []
     ctrs = []
     qualities = []
-    alpha = makeLNAlpha(n, m, r)
+    alpha = makeLNAlpha(n, m)
     for i in range(n):
-        value = LNdistro(r, k)[0]
+        value = LNdistro(k)[0]
         values.append(tuple([value] * n))
         ctrs.append(tuple([alpha[i] * beta for i in range(n)]))
         qualities.append(beta)
@@ -393,5 +385,4 @@ def EOS_LN(n, m, k, seed=None):
 
 GENERATORS = {
     "BHN-LN": BHN_LN, "V-LN": LP, "EOS-LN": EOS_LN, "EOS": EOS, "BHN": BHN, "V": Varian, "BSS": BSS,
-
 }

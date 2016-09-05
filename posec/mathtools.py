@@ -19,17 +19,6 @@ def isDelta(d):
     return max(d) == sum(d)
 
 
-def cartesianProduct(setOfSets, prefixes=[[]]):
-    if not setOfSets:
-        return prefixes
-    output = []
-    for prefix in prefixes:
-        for element in setOfSets[0]:
-            output.append(prefix + [element])
-    return cartesianProduct(setOfSets[1:], output)
-# Recursion is cute, but iterators are better.
-
-
 def cartesianProduct(listOfLists):
     n = 1L
     lens = map(len, listOfLists)
@@ -71,7 +60,7 @@ def product(S):
         p *= e
     return p
 
-
+# TODO.. using an actual bit vector can probably speed this up...
 def intToBitVector(n, minBits=0):
     output = []
     while n > 0:

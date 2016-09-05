@@ -71,6 +71,7 @@ Allows RDS, etc to be re-used '''
 
         for a in A:
             a.truthful = self.truthful(setting, i, theta_i, a)
+
         if self.allowAbstain:
             A.append(None)
         return tuple(A)
@@ -278,7 +279,7 @@ def urn_model_setting(n, m, a, seed):
     for i in range(n):
         ranking = r.choice(possible_rankings)
         rankings.append(ranking)
-        for i in range(a):
+        for _ in range(a):
             possible_rankings.append(ranking)
     return settingFromRankings(rankings)
 
@@ -353,11 +354,10 @@ def singlePeaked_Setting(n, m, seed):
 def uniformXY_Setting(n, m, seed):
     import random as r
     r.seed(seed)
-    outcomes = [(chr(i + 65)) for i in range(m)]
 
     def toText(point):
         return "(%.2f,%.2f)" % (point)
-    outcomes = [(random.random(), random.random()) for i in range(m)]
+    outcomes = [(r.random(), r.random()) for i in range(m)]
 
     def distanceSquared(p1, p2):
         x1, y1 = p1
@@ -365,7 +365,7 @@ def uniformXY_Setting(n, m, seed):
         return (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)
     rankings = []
     for i in range(n):
-        position = random.random(), random.random()
+        position = r.random(), r.random()
         distOutcomeList = [(distanceSquared(position, o), o) for o in outcomes]
         distOutcomeList.sort()
         ranking = [toText(o) for d, o in distOutcomeList]

@@ -1,7 +1,9 @@
 from collections import namedtuple
 import pyagg
-from abc import ABCMeta, abstractmethod
 import bbsi
+import sys
+import inspect
+import time
 
 
 def _hasAttribute(o, attrName):
@@ -15,8 +17,7 @@ def _hasAttribute(o, attrName):
 def _nArgs(fn):
     if not callable(fn):
         return -1
-    import inspect
-    return len(inspect.getargspec(function).args)
+    return len(inspect.getargspec(fn).args)
 
 
 class _PosEcKeyError(KeyError):
@@ -36,7 +37,7 @@ _PosEcAccessor = namedtuple(
     "_PosEcAccessor", ["function", "agents", "types", "type_weights", "actions", "action_weights", "signature"])
 
 
-class _InstrumentedDataStore:
+class _InstrumentedDataStore(object):
 
     ''' Parent class for action and type profiles. '''
 
@@ -54,38 +55,34 @@ class _InstrumentedDataStore:
 
     # FIXME: A nice, but expensive sanity check
     def _symmetric(self):
-        if all([a.agent == None for a in self._agg.A]):
+        if all([a.agent is None for a in self._agg.A]):
             return True
-        if all([a.agent != None for a in self._agg.A]):
+        if all([a.agent is not None for a in self._agg.A]):
             return False
         raise _PosEcInternalException(
             "Action nodes are not consistently labeled with agent ids.")
 
     def _selectNodes(self, actions=None, agents=None, types=None):
         nodes = [n for n in self._agg.A]
-        if actions != None:
+        if actions is not None:
             for a in actions:
                 assert a in self.actions
-            #nodes = filter(lambda x: x.action in actions, nodes)
             nodes = [n for n in nodes if n.action in actions]
-        if agents != None:
-            if self._a.agent == None:
+        if agents is not None:
+            if self._a.agent is None:
                 raise _PosEcInputException(
                     "agent-specific queries cannot be made when making a symmetric game.")
             for i in agents:
                 assert i in self.agents
-            #nodes = filter(lambda x: x.agent in agents, nodes)
             nodes = [n for n in nodes if n.agent in agents]
-        if types != None:
+        if types is not None:
             for theta in types:
                 assert theta in self.types
-            #nodes = filter(lambda x: x.type in types, nodes)
             nodes = [n for n in nodes if n.type in types]
         return tuple(nodes)
 
     def _sum(self, **selection):
-        assert "types" not in selection.keys(
-        ) or "actions" not in selection.keys()
+        assert "types" not in selection.keys() or "actions" not in selection.keys()
         if not "types" in selection.keys():
             selection["types"] = self.types
         if not "actions" in selection.keys():
@@ -97,8 +94,7 @@ class _InstrumentedDataStore:
         return self._access(_PosEcAccessor("SUM", tuple(selection["agents"]), tuple(selection["types"]), None, tuple(selection["actions"]), tuple([1] * len(selection["actions"])), None))
 
     def _any(self, **selection):
-        assert "types" not in selection.keys(
-        ) or "actions" not in selection.keys()
+        assert "types" not in selection.keys() or "actions" not in selection.keys()
         if not "types" in selection.keys():
             selection["types"] = self.types
             type_weights = None
@@ -166,7 +162,7 @@ An ActionProfile is passed to a Mechanism's outcome function as the argument a_N
     def max(self, A, fn=lambda x: x, default=None):
         ''' Returns fn(a) or default (See argmax) '''
         a = self.argmax(A, fn, None)
-        if a == None:  # FIXME: What if None is in the map(fn,A)?
+        if a is None:  # FIXME: What if None is in the map(fn,A)?
             return default
         return fn(a)
         # FIXME: I should be able to make this more efficient by collapsing
@@ -174,19 +170,19 @@ An ActionProfile is passed to a Mechanism's outcome function as the argument a_N
 
     def argmin(self, A, fn=lambda x: x, default=None):
         ''' Returns some action in A or default (See argmax) '''
-        return argmax(self, A, lambda x: -fn(x), default)
+        return self.argmax(A, lambda x: -fn(x), default)
 
     def min(self, A, fn=lambda x: x, default=None):
         ''' Returns fn(a) or default (See argmax) '''
         a = self.argmin(A, fn, None)
-        if a == None:  # FIXME: What if None is in the map(fn,A)?
+        if a is None:  # FIXME: What if None is in the map(fn,A)?
             return default
         return fn(a)
 
     def any(self, A, agents=None):
         ''' Returns True iff any agent plays an action in list A
 If the agents parameter is not None, it can be a list of agents to consider '''
-        if agents == None:
+        if agents is None:
             agents = self.agents
         return self._any(actions=A, agents=agents)
 
@@ -203,7 +199,7 @@ If the agents parameter is not None, it can be a list of agents to consider '''
         ''' Returns the action played by agent j '''
         if j == self._a.agent:
             return self._a.action
-        if self._a.agent == None:
+        if self._a.agent is None:
             raise _PosEcInputException(
                 "a_N.action() method is not allowed when making k-symmetric games.")
         actions = set([a.action for a in self._agg.A if a.agent == j])
@@ -303,7 +299,7 @@ A TypeProfile is passed to a Setting's utility function as the argument theta_N
 
     def argmin(self, T, fn=lambda x: x, default=None):
         ''' Returns some type in T or default (See argmax) '''
-        return self.argmax(self, T, lambda x: -fn(x), default)
+        return self.argmax(T, lambda x: -fn(x), default)
 
     def min(self, T, fn=lambda x: x, default=None):
         ''' Returns fn(t) or default (See argmax) '''
@@ -322,7 +318,7 @@ Useful for defining the (projected) outcome space in a Setting '''
     def __init__(self, dimensions=None):
         ''' If dimensions==None, it contains all floating point numbers.
 If dimensions>=0, it contains all dimensions-length lists & tuples of floating point numbers. '''
-        if dimensions != None:
+        if dimensions is not None:
             assert isinstance(dimensions, int)
             assert dimensions >= 0
         self.dim = dimensions
@@ -330,7 +326,7 @@ If dimensions>=0, it contains all dimensions-length lists & tuples of floating p
     def __contains__(self, element):
         ''' If dimensions==None, it contains all floating point numbers.
 If dimensions>=1, it contains all dimensions-length lists & tuples of floating point numbers. '''
-        if self.dim == None:
+        if self.dim is None:
             return isinstance(element, (float, int))
         else:
             if not isinstance(element, (list, tuple)):
@@ -346,7 +342,7 @@ If dimensions>=1, it contains all dimensions-length lists & tuples of floating p
         return self.dim == other.dim
 
     def __repr__(self):
-        if self.dim == None:
+        if self.dim is None:
             return "RealSpace()"
         return "RealSpace(%d)" % (self.dim)
 
@@ -376,7 +372,7 @@ if memberType!=None, then vector must alos have type <memberType> (
 '''
         if len(vector) != len(self.factors):
             return False
-        if self.memberType != None and not isinstance(vector, self.memberType):
+        if self.memberType is not None and not isinstance(vector, self.memberType):
             return False
         return all([vector[i] in self.factors[i] for i in range(len(vector))])
 
@@ -392,29 +388,26 @@ if memberType!=None, then vector must alos have type <memberType> (
 
 class _TypeCheckDescriptor(object):
 
-    """ FIXME: This does not seem to be working at all!  I need to either fix it, or come up with some alternative way of validating user inputs. """
-
     def __init__(self, name, comment, testfn=lambda x: True):
-        self.val = None
+        self.data = {}
         self.name = name
-        if comment:
-            self.__doc__ = comment
+        self.comment = comment
         self.testfn = testfn
 
-    def __get__(self, obj, objtype):
-        return self.val
+    def __get__(self, instance, owner):
+        return self.data.get(instance)
 
-    def __set__(self, obj, val):
-        if not self.testfn(val):
+    def __set__(self, instance, value):
+        if not self.testfn(value):
             raise _PosEcInputException(self.name + " must be " + self.comment)
-        self.val = val
+        self.data[instance] = value
 
 
-class Setting:
+class Setting(object):
 
     ''' A data structure representing a (not projected) full-information setting '''
     n = _TypeCheckDescriptor(
-        "n", "integer number of agents", lambda x: isinstance(x, int) and x > 0)
+        "n", "positive integer number of agents", lambda x: isinstance(x, int) and x > 0)
     O = _TypeCheckDescriptor(
         "O", "set-like container of outcomes", lambda x: _hasAttribute(x, "__contains__"))
     Theta = _TypeCheckDescriptor(
@@ -466,7 +459,7 @@ class BayesianSetting(Setting):
         self.P = P
         self.u = u
         if len(P) != n:
-            raise _PosEcInputException("Theta must have a length of n")
+            raise _PosEcInputException("P must have a length of n")
 
 
 class ProjectedBayesianSetting(ProjectedSetting, BayesianSetting):
@@ -480,15 +473,15 @@ class ProjectedBayesianSetting(ProjectedSetting, BayesianSetting):
         self.Psi = Psi
         self.pi = pi
         if len(P) != n:
-            raise _PosEcInputException("Theta must have a length of n")
+            raise _PosEcInputException("P must have a length of n")
 
 
-class Mechanism:
+class Mechanism(object):
 
     A = _TypeCheckDescriptor(
-        "A", "Action function; A(setting, i, theta_i) returns a collection of (hash()-able) actions", lambda x: True)
+        "A", "Action function; A(setting, i, theta_i) returns a collection of (hash()-able) actions")
     M = _TypeCheckDescriptor(
-        "M", "Outcome function; M(setting, a_N) returns an outcome or a Distribution over outcomes", lambda x: True)
+        "M", "Outcome function; M(setting, a_N) returns an outcome or a Distribution over outcomes")
 
     def __init__(self, A, M):
         self.A = A
@@ -499,12 +492,12 @@ class ProjectedMechanism(Mechanism):
 
     ''' FIXME: Consider not passing the theta_i; it's kind of inappropriate '''
     M = _TypeCheckDescriptor(
-        "M", "Outcome function; M(setting, i, theta_i, a_N) returns a (projected) outcome or a Distribution over (projected) outcomes", lambda x: True)
-
+        "M", "Outcome function; M(setting, i, theta_i, a_N) returns a (projected) outcome or a Distribution over (projected) outcomes")
+    
 _PosEcActionNode = namedtuple("PosEcActionNode", ["agent", "type", "action"])
 
 
-class Distribution:
+class Distribution(object):
 
     ''' Representation of a distribution with finite support
 
@@ -539,20 +532,19 @@ class UniformDistribution(Distribution):
 
 def _findDependencies(setting, mechanism, agg, quiet=False, addAnonymity=False):
     dependencies = []
-    import sys
 
     def addDependency(agg, a, f):
         if (a, f) in dependencies:
             raise _PosEcInternalException(
                 "Duplicate Arc Adding! " + repr((a, f)))
 
-        if not f in agg.F and isinstance(f, _PosEcAccessor):
+        if f not in agg.F and isinstance(f, _PosEcAccessor):
             if f.function == "SUM":
                 agg.F.append(f)
                 agg.f[f] = (pyagg.FN_TYPE_WEIGHTED_SUM, 0)
                 for a2 in agg.A:
                     add = True
-                    if a2.agent != None and a2.agent not in f.agents:
+                    if a2.agent is not None and a2.agent not in f.agents:
                         add = False
                     if a2.type not in f.types:
                         add = False
@@ -560,10 +552,10 @@ def _findDependencies(setting, mechanism, agg, quiet=False, addAnonymity=False):
                         add = False
                     if add:
                         weight = 1
-                        if f.action_weights != None:
+                        if f.action_weights is not None:
                             weight = f.action_weights[
                                 list(f.actions).index(a2.action)]
-                        elif f.type_weights != None:
+                        elif f.type_weights is not None:
                             weight = f.type_weights[
                                 list(f.types).index(a2.type)]
                         agg.v.append((a2, f, weight))
@@ -572,7 +564,7 @@ def _findDependencies(setting, mechanism, agg, quiet=False, addAnonymity=False):
                 agg.f[f] = (pyagg.FN_TYPE_WEIGHTED_MAX, 0)
                 for a2 in agg.A:
                     add = True
-                    if a2.agent != None and a2.agent not in f.agents:
+                    if a2.agent is not None and a2.agent not in f.agents:
                         add = False
                     if a2.type not in f.types:
                         add = False
@@ -580,10 +572,10 @@ def _findDependencies(setting, mechanism, agg, quiet=False, addAnonymity=False):
                         add = False
                     if add:
                         weight = 1
-                        if f.action_weights != None:
+                        if f.action_weights is not None:
                             weight = f.action_weights[
                                 list(f.actions).index(a2.action)]
-                        elif f.type_weights != None:
+                        elif f.type_weights is not None:
                             weight = f.type_weights[
                                 list(f.types).index(a2.type)]
                         agg.v.append((a2, f, weight))
@@ -608,7 +600,7 @@ def _findDependencies(setting, mechanism, agg, quiet=False, addAnonymity=False):
         accessors = []
         for a in actions:
             accessor = _PosEcAccessor(
-                "SUM", agents, types, None, (a,), (1,), None)
+                function="SUM", agents=agents, types=types, type_weights=None, actions=(a,), action_weights=(1,), signature=None)
             accessors.append(accessor)
         for act in agg.A:
             for accessor in accessors:
@@ -631,9 +623,8 @@ def _findDependencies(setting, mechanism, agg, quiet=False, addAnonymity=False):
                     # print sys.exc_info()
                     # print "Missing Arc",a,key
                     count += 1
-                    if not quiet:
-                        print count,
-                    # if not quiet: print '.',
+                    # if not quiet:
+                        # print count
                     addDependency(agg, a, key)
                     finished = False
                     break
@@ -645,7 +636,7 @@ def _findDependencies(setting, mechanism, agg, quiet=False, addAnonymity=False):
         print "Done."
 
 
-class _PayoffFn:
+class _PayoffFn(object):
 
     def __init__(self, setting, mechanism, a, transform=None):
         self.setting = setting
@@ -663,7 +654,7 @@ class _PayoffFn:
         else:
             if o not in self.setting.O:
                 raise _PosEcInputException("Invalid outcome: " + repr(o))
-        if self.transform != None:
+        if self.transform is not None:
             return self.transform(self.setting, a.agent, theta_N, o, a.action)
         else:
             return self.setting.u(a.agent, theta_N, o, a.action)
@@ -694,8 +685,7 @@ class _PayoffFn:
         theta_N.actions = tuple(set([anode.action for anode in self.agg.A]))
         a_N.config = inArcs, config
         if isinstance(self.mechanism, ProjectedMechanism):
-            lottery = self.mechanism.M(
-                self.setting, a.agent, a.type, a_N)
+            lottery = self.mechanism.M(self.setting, a.agent, a.type, a_N)
         else:
             lottery = self.mechanism.M(self.setting, a_N)
         if not isinstance(lottery, Distribution):
@@ -712,7 +702,46 @@ def _hashable(o):
         return False
 
 
-def makeAGG(setting, mechanism, symmetry=False, transform=None, quiet=False, bbsi_level=0):
+def structureInference(setting, mechanism, agg, quiet=False, bbsi_level=0, metrics=None):
+    if metrics is None:
+        metrics = dict()
+    if not quiet:
+        start = time.time()
+    _findDependencies(setting, mechanism, agg, quiet, bbsi_level == 2)
+    metrics['WBSI-time'] = time.time() - start
+    metrics['BNFG-size'] = agg.sizeAsNFG()
+    metrics['Post-WBSI size'] = agg.sizeAsAGG()
+    if not quiet:
+        print "WBSI time:", metrics['WBSI-time']
+        print "BNFG size:", metrics['BNFG-size']
+        print "Post-WBSI size:", metrics['Post-WBSI size']
+    if bbsi_level > 0:
+        bbsi.preprocess(agg)
+        if bbsi_level == 2:
+            if not quiet:
+                print "Performing anonymity-favoring cuts."
+                start = time.time()
+            bbsi.anonymityCuts(agg)
+            metrics['anon-size'] = agg.sizeAsAGG()
+            metrics['anon-time'] = time.time() - start
+            if not quiet:
+                print "Post-anonymity-cut size:", metrics['anon-size']
+                print "anonymity-cut time:", metrics['anon-time']
+
+        if not quiet:
+            print "General BBSI:"
+        bbsi.compressByILS(agg)
+        if not quiet:
+            print "Done."
+        metrics['BBSI-size'] = agg.sizeAsAGG()
+        metrics['BBSI-time'] = time.time() - start
+        if not quiet:
+            print "Post-BBSI size:", metrics['BBSI-size']
+            print "BBSI time:", metrics['BBSI-time']
+    return agg
+
+
+def makeAGG(setting, mechanism, symmetry=False, transform=None, quiet=False, bbsi_level=0, metrics=None):
     ''' Takes a Setting and a Mechanism, returns a corresponding pyagg.AGG object
 
 transform is a function (setting,i,theta_i,a_i,o,theta_N) that returns a real value
@@ -723,9 +752,12 @@ bbsi_level==2 means to do extensive BBSI (suitable for discovering coarse struct
 '''
     # FIXME: bbsi==1 is still way too time-consuming for large games - I need
     # to refine these parameters.
+    if metrics is None:
+        metrics = dict()
+
     assert isinstance(setting, Setting)
     if isinstance(setting, BayesianSetting):
-        return _makeBAGG(setting, mechanism, symmetry, transform, quiet, bbsi_level)
+        return _makeBAGG(setting, mechanism, symmetry, transform, quiet, bbsi_level, metrics)
 
     assert bbsi_level in [0, 1, 2]
     _N = range(setting.n)
@@ -765,40 +797,12 @@ bbsi_level==2 means to do extensive BBSI (suitable for discovering coarse struct
     agg = pyagg.AGG(_N, _A, _S, _F, _v, _f, _u)
     for a in _A:
         _u[a].agg = agg
-    if not quiet:
-        import time
-        start = time.time()
-    _findDependencies(setting, mechanism, agg, quiet, bbsi_level == 2)
-    if not quiet:
-        print "WBSI time:", time.time() - start
-    if not quiet:
-        print "BNFG size:", agg.sizeAsNFG()
-    if not quiet:
-        print "Post-WBSI size:", agg.sizeAsAGG()
-    if bbsi_level > 0:
-        bbsi.preprocess(agg)
-        if bbsi_level == 2:
-            if not quiet:
-                print "Performing anonymity-favoring cuts."
-                start = time.time()
-            bbsi.anonymityCuts(agg)
-            if not quiet:
-                print "Post-anonymity-cut size:", agg.sizeAsAGG()
-
-        if not quiet:
-            print "General BBSI:"
-        bbsi.compressByILS(agg)
-        if not quiet:
-            print "Done."
-        if not quiet:
-            print "Post-BBSI size:", agg.sizeAsAGG()
-            print "BBSI time:", time.time() - start
-    return agg
+    return structureInference(setting, mechanism, agg, quiet=quiet, bbsi_level=bbsi_level, metrics=metrics)
 
 _PosEc_BAGG_type = namedtuple("_PosEc_BAGG_type", ("agent", "type"))
 
 
-def _makeBAGG(setting, mechanism, symmetry=False, transform=None, quiet=False, bbsi_level=1):
+def _makeBAGG(setting, mechanism, symmetry=False, transform=None, quiet=False, bbsi_level=1, metrics=None):
     ''' Takes a BayesianSetting and a Mechanism, returns a corresponding pyagg.BAGG
 
 transform is a function (setting,i,theta_i,a_i,o,theta_N) that returns a real value
@@ -808,6 +812,8 @@ bbsi_level==1 means to do limited BBSI (suitable for fine-tuning games)
 bbsi_level==2 means to do extensive BBSI (suitable for discovering coarse structure)
 '''
     assert isinstance(setting, BayesianSetting)
+    if metrics is None:
+        metrics = dict()
 
     _N = range(setting.n)
     _A = []
@@ -816,7 +822,7 @@ bbsi_level==2 means to do extensive BBSI (suitable for discovering coarse struct
     _P = {}
     for i in _N:
         _P[i] = {}
-    if symmetry == True:
+    if symmetry:
         _Theta = [_PosEc_BAGG_type(None, theta) for theta in setting.Theta]
         for theta in _Theta:
             aTheta = [_PosEcActionNode(None, theta.type, a)
@@ -856,35 +862,7 @@ bbsi_level==2 means to do extensive BBSI (suitable for discovering coarse struct
     agg = pyagg.BAGG(_N, _Theta, _P, _A, _S, _F, _v, _f, _u)
     for a in _A:
         _u[a].agg = agg
-    if not quiet:
-        import time
-        start = time.time()
-    _findDependencies(setting, mechanism, agg, quiet, bbsi_level == 2)
-    if not quiet:
-        print "WBSI time:", time.time() - start
-    if bbsi_level > 0:
-        if not quiet:
-            print "BNFG size:", agg.sizeAsNFG()
-        if not quiet:
-            print "Pre-BBSI size:", agg.sizeAsAGG()
-        bbsi.preprocess(agg)
-        if bbsi_level == 2:
-            if not quiet:
-                print "Performing anonymity-favoring cuts."
-                start = time.time()
-            bbsi.anonymityCuts(agg)
-            if not quiet:
-                print "Post-anonymity-cut size:", agg.sizeAsAGG()
-
-        if not quiet:
-            print "General BBSI:"
-        bbsi.compressByILS(agg)
-        if not quiet:
-            print "Done."
-        if not quiet:
-            print "Post-BBSI size:", agg.sizeAsAGG()
-            print "BBSI time:", time.time() - start
-    return agg
+    return structureInference(setting, mechanism, agg, quiet=quiet, bbsi_level=bbsi_level, metrics=metrics)
 
 '''
     Things I'm currently missing:
@@ -941,7 +919,7 @@ Optionally, acts can cover a specific subset of action nodes.
             if len(fn.actions) == 1:
                 return prefix + "plays(%r,%r)" % (fn.agents, fn.actions[0])
         return fn
-    if acts == None:
+    if acts is None:
         acts = agg.A
     for a in acts:
         print a

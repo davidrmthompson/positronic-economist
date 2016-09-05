@@ -562,9 +562,6 @@ class AGG(AGG_File):
 
     def _updateConfiguration(agg, nodes, config, action):
         return tuple([(agg._quickUpdateConfigurationNode(nodes[n], config[n], action)) for n in range(len(nodes))])
-        # return
-        # tuple([(agg._updateConfigurationNode(nodes[n],config[n],action)) for
-        # n in range(len(nodes))])
 
     def _getConfigurationsSlow(self, nodes, holdBackAgents=[]):
         Cs = [[0] * len(nodes)]
@@ -620,13 +617,6 @@ class AGG(AGG_File):
         return self.S[player]
 
     def _possibleConfigs(self, a):
-        neighbours = [n for n in self.A + self.F if self._hasArc(n, a)]
-        try:
-            #arcs = self.inArcDict[(n)]
-            arcs = [arc for arc in self.v if arc[1] == a]
-        except:
-            arcs = []
-        #neighbours = [arc[0] for arc in arcs]
         neighbours = self.neighbours(a)
         players = [i for i in self.N if a in self._possibleActions(i)]
         configs = []

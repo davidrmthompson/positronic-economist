@@ -157,13 +157,13 @@ class ApplicationExamples(unittest.TestCase):
                 agg.saveToFile("applications_%s_%s.agg" %
                                (mech_name, setting_name))
 
-    def test_position_auctions_externalities(self):
-        from posec.applications import position_auctions_externalities
-        for name, generator in position_auctions_externalities.GENERATORS.items():
-            setting = generator(3, 2, 5, 1)
-            mech = position_auctions_externalities.ExternalityPositionAuction(
-                pricing='GFP')
-            agg = makeAGG(setting, mech)
-            agg.saveToFile("applications_GFP_hybrid_%s.agg" % (name,))
+    # def test_position_auctions_externalities(self):
+    #     from posec.applications import position_auctions_externalities
+    #     for name, generator in position_auctions_externalities.GENERATORS.items():
+    #         setting = generator(3, 2, 5, 1)
+    #         mech = position_auctions_externalities.ExternalityPositionAuction(
+    #             pricing='GFP')
+    #         agg = makeAGG(setting, mech)
+    #         agg.saveToFile("applications_GFP_hybrid_%s.agg" % (name,))
 if __name__ == '__main__':
     unittest.main()

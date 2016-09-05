@@ -1,8 +1,12 @@
 import pyagg
 from pyagg import *
-import posec
+import posec_core
+import math
+import random
 
-
+# Preprocess step: convert all utility functions to utility mappings, and
+#   make sure that the utility mapping's domain is exactly the set of possible
+#   configurations.
 def preprocess(agg):
     for act in agg.A:
         configs = agg._possibleConfigs(act)
@@ -14,6 +18,7 @@ def preprocess(agg):
 
 
 def collapseTest(f, C, t):
+    # Tests to see if removing an arc leaves the payoff table unchanged
     newF = {}
     for c in C:
         ct = t(c)
@@ -46,7 +51,7 @@ def tryCutNode(agg, act, node):
 def tryCut(agg, act, arcIndex, strict=False):
     ''' If possible (and, optionally, strictly improving) cut an arc '''
     newMapping = testCut(agg, act, arcIndex)
-    if newMapping == None:
+    if newMapping is None:
         return False
     if len(newMapping) == len(agg.u[act]) and strict:
         return False
@@ -62,9 +67,6 @@ def findArcIndex(agg, act, otherNode):
     if otherNode not in inputs:
         raise "ASDF"
     return inputs.index(otherNode)
-# FIXME: Is arcIndex the right way to identify them?  Or do I want to look
-# it up?
-
 
 def makeSum(agg, act, existingSums, weights, functionName):
     ''' Create a new weighted sum node that combines a bunch of existing inputs '''
@@ -72,7 +74,7 @@ def makeSum(agg, act, existingSums, weights, functionName):
     inputs = [arc[0] for arc in agg.v if arc[1] == act]
     inputsAndIndeces = zip(inputs, range(len(inputs)))
     for fn in existingSums:
-        if not fn in inputs:
+        if fn not in inputs:
             raise "makeSum can only merge existing sum inputs"
     inputsAndIndeces = [(n, i)
                         for n, i in inputsAndIndeces if n in existingSums]
@@ -177,35 +179,11 @@ SUM_LOG = []
 
 
 def compressByILS(agg, seed=None):
-    import random
-    if seed != None:
+    if seed is not None:
         random.seed(seed)
     assert isinstance(agg, AGG)
-    # assert not isinstance(agg,BAGG) # FIXME: This should work too!
 
-    # Preprocess step: convert all utility functions to utility mappings, and
-    #   make sure that the utility mapping's domain is exactly the set of possible
-    #   configurations.
-    for act in agg.A:
-        configs = agg._possibleConfigs(act)
-        if callable(agg.u[act]):
-            mapping = dict([(c, agg.u[act](c)) for c in configs])
-        else:
-            mapping = dict([(c, agg.u[act][c]) for c in configs])
-        agg.u[act] = mapping
-
-    def collapseTest(f, C, t):
-        newF = {}
-        for c in C:
-            ct = t(c)
-            fc = f[c]
-            if ct in newF.keys():
-                if newF[ct] != fc:
-                    return None  # Transform is inconsistent
-            else:
-                newF[ct] = fc
-        # Additional bar: t makes the set of configurations smaller
-        return newF
+    preprocess(agg)
 
     def makeSnapshot(agg, act):
         inarcs = [arc for arc in agg.v if arc[1] == act]
@@ -220,12 +198,14 @@ def compressByILS(agg, seed=None):
         if isinstance(mapping, tuple):
             mapping = mapping[1]
         return len(mapping)
-        config = mapping.keys()[0]
-        inarcs = len(config)
-        configs = len(mapping)
-        return inarcs + configs
+        # config = mapping.keys()[0]
+        # inarcs = len(config)
+        # configs = len(mapping)
+        # return inarcs + configs
 
     def iterativeFirstImprovement(agg, act, minimumCuts=0):
+        # Keep cutting arcs as long as you are able
+        # minimum cuts is a budget for how many cuts do not have to be strictly improving
         while True:
             arcs = [arc for arc in agg.v if arc[1] == act]
             arcNumbers = range(len(arcs))
@@ -257,15 +237,15 @@ def compressByILS(agg, seed=None):
         actionWeights = []
         for a in actions:
             aw = 0
-            if a in fn1.actions and fn1.action_weights != None:
+            if a in fn1.actions and fn1.action_weights is not None:
                 i = fn1.actions.index(a)
                 aw += fn1.action_weights[i]
-            if a in fn2.actions and fn2.action_weights != None:
+            if a in fn2.actions and fn2.action_weights is not None:
                 i = fn2.actions.index(a)
                 aw += fn2.action_weights[i]
             actionWeights.append(aw)
         # FIXME: What about type weights
-        return posec._PosEcAccessor(function, tuple(agents), tuple(types), None, actions, tuple(actionWeights), random.random())
+        return posec_core._PosEcAccessor(function, tuple(agents), tuple(types), None, actions, tuple(actionWeights), random.random())
 
     def makeOrName(fn1):
         tw = None
@@ -276,7 +256,7 @@ def compressByILS(agg, seed=None):
         if fn1.action_weights != None:
             aw = tuple([1 * (fn1.action_weights[i] > 0)
                        for i in range(len(fn1.action_weights))])
-        return posec._PosEcAccessor("MAX", fn1.agents, fn1.types, tw, fn1.actions, aw, random.random())
+        return posec_core._PosEcAccessor("MAX", fn1.agents, fn1.types, tw, fn1.actions, aw, random.random())
 
     def randomIntWeight():
         i = 1
@@ -304,7 +284,7 @@ def compressByILS(agg, seed=None):
         # Add the node
         fn = merge(n1, n2)
         makeSum(agg, act, [n1, n2], [randomIntWeight(), randomIntWeight()], fn)
-        if testCut(agg, act, n1) != None and testCut(agg, act, n1) != None:
+        if testCut(agg, act, n1) is not None and testCut(agg, act, n2) is not None:
             tryCutNode(agg, act, n1)
             tryCutNode(agg, act, n2)
             return True
@@ -318,7 +298,7 @@ def compressByILS(agg, seed=None):
         n = random.choice(neighbours)
         fn = makeOrName(n)
         makeOr(agg, act, n, fn)
-        if testCut(agg, act, n) != None:
+        if testCut(agg, act, n) is not None:
             tryCutNode(agg, act, n)
             return True
         else:
@@ -371,7 +351,6 @@ def compressByILS(agg, seed=None):
         fn = random.choice(moves)
         fn(agg, act)
 
-    c = 200
     s = 1
     restartP = 0.1
     for a in agg.A:
@@ -381,12 +360,9 @@ def compressByILS(agg, seed=None):
         iterativeFirstImprovement(agg, a, 999)
         c = cost(agg.u[a])
         print cost(agg.u[a]),
-        import math
-        c *= int(math.log(c, 2))
-        # c =
-        t = 0
-        for i in range(c):
-            for i in range(s):
+        c *= int(math.log(c,2))
+        for _ in range(c):
+            for __ in range(s):
                 perturb(agg, a)
             iterativeFirstImprovement(agg, a, 999)
             if cost(agg.u[a]) < cost(best):
@@ -402,25 +378,25 @@ def compressByILS(agg, seed=None):
     agg._makeArcDict()
     agg._makeEffectDict()
 
-# The tomfoolery around truthfulness in voting is a serious problem that I need to think hard about.
-# The output its producing has some serious bullshit that I don't want a
-# casual user to get tripped up by.
+def incoming_arcs(agg, node):
+    return [arc for arc in agg.v if arc[1] == node]
 
 
-# FIXME: Too many calls to pre-process are happening.  That's not actually
-# a cheap thing.
+def incoming_nodes(agg, node):
+    return [arc[0] for arc in incoming_arcs(agg, node)]
+
+
 def anonymityCuts(agg):
-    ''' pass '''
     preprocess(agg)
     for act in agg.A:
         # print act
         while True:
-            arcsToAct = [arc for arc in agg.v if arc[1] == act]
+            arcsToAct = incoming_arcs(agg, act)
             madeCut = False
-            for arc, i in zip(arcsToAct, range(len(arcsToAct))):
+            for i, arc in enumerate(arcsToAct):
                 agents = []
                 fnNode = arc[0]
-                actsToFn = [arc[0] for arc in agg.v if arc[1] == fnNode]
+                actsToFn = incoming_nodes(agg, fnNode)
                 for act2 in actsToFn:
                     if act2.agent not in agents:
                         agents.append(act2.agent)
