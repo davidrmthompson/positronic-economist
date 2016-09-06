@@ -4,6 +4,7 @@ import bbsi
 import sys
 import inspect
 import time
+import resource
 import logging
 
 def _hasAttribute(o, attrName):
@@ -699,32 +700,46 @@ def _hashable(o):
     except:
         return False
 
+def cputime():
+    cpu_info = resource.getrusage(resource.RLIMIT_CPU)
+    return cpu_info.ru_utime + cpu_info.ru_stime
+
 
 def structureInference(setting, mechanism, agg, quiet=False, bbsi_level=0, metrics=None):
     if metrics is None:
         metrics = dict()
-    if not quiet:
-        start = time.time()
+
+    start = time.time()
+    start_cpu = cputime()
     _findDependencies(setting, mechanism, agg, quiet, bbsi_level == 2)
     metrics['WBSI-time'] = time.time() - start
+    metrics['WBSI-CPU'] = cputime() - start_cpu
     metrics['BNFG-size'] = agg.sizeAsNFG()
     metrics['Post-WBSI size'] = agg.sizeAsAGG()
     if not quiet:
-        logging.info("WBSI time: %s" % metrics['WBSI-time'])
+        logging.info("WBSI time: %s, CPU: %s" % (metrics['WBSI-time'], metrics['WBSI-CPU']))
         logging.info("BNFG size: %s" % metrics['BNFG-size'])
         logging.info("Post-WBSI size: %s" % metrics['Post-WBSI size'])
     if bbsi_level > 0:
+        start = time.time()
+        start_cpu = cputime()
+        logging.info("Preprocessing for BBSI")
         bbsi.preprocess(agg)
+        metrics['prepro-time'] = time.time() - start
+        metrics['prepro-CPU'] = cputime() - start_cpu
+        logging.info("Preprocessing time: %s, CPU %s" % (metrics['prepro-time'], metrics['prepro-CPU']))
         if bbsi_level == 2:
+            anon_start = time.time()
+            anon_cpu = cputime()
             if not quiet:
                 logging.info("Performing anonymity-favoring cuts.")
-                start = time.time()
             bbsi.anonymityCuts(agg)
             metrics['anon-size'] = agg.sizeAsAGG()
-            metrics['anon-time'] = time.time() - start
+            metrics['anon-time'] = time.time() - anon_start
+            metrics['anon-CPU'] = cputime() - anon_cpu
             if not quiet:
                 logging.info("Post-anonymity-cut size: %d", metrics['anon-size'])
-                logging.info("anonymity-cut time: %s" % metrics['anon-time'])
+                logging.info("anonymity-cut time: %s, CPU: %s" % (metrics['anon-time'], metrics['anon-CPU']))
 
         if not quiet:
             logging.info("General BBSI:")
@@ -733,9 +748,10 @@ def structureInference(setting, mechanism, agg, quiet=False, bbsi_level=0, metri
             logging.info("Done.")
         metrics['BBSI-size'] = agg.sizeAsAGG()
         metrics['BBSI-time'] = time.time() - start
+        metrics['BBSI-CPU'] = cputime() - start_cpu
         if not quiet:
             logging.info("Post-BBSI size: %d" % metrics['BBSI-size'])
-            logging.info("BBSI time: %s" % metrics['BBSI-time'])
+            logging.info("BBSI time: %s, CPU: %s" % (metrics['BBSI-time'], metrics['BBSI-CPU']))
     return agg
 
 

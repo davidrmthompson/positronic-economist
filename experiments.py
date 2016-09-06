@@ -136,6 +136,11 @@ def bbsi_check(n_players, seed, fn):
     agg.saveToFile("baggs/%s/%s.bagg" % (fn.__name__.upper(), name))
     return metrics
 
+# def test():
+#     logging.basicConfig(format='%(asctime)-15s [%(levelname)s] %(message)s', level=logging.INFO, filename='posec.log')
+#     logging.getLogger().addHandler(logging.StreamHandler())
+#     bbsi_check(4, 4, gsp)
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--qname', type=str, help="redis queue", required=True)
