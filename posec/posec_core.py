@@ -4,7 +4,7 @@ import bbsi
 import sys
 import inspect
 import time
-
+import logging
 
 def _hasAttribute(o, attrName):
     try:
@@ -589,11 +589,11 @@ def _findDependencies(setting, mechanism, agg, quiet=False, addAnonymity=False):
         agg._makeEffectDict()
 
     if not quiet:
-        print "Finding missing arcs:"
+        logging.info("Finding missing arcs:")
     count = 0
     if addAnonymity:
         if not quiet:
-            print "Adding anonymity arcs."
+            logging.info("Adding anonymity arcs.")
         actions = tuple(set([a.action for a in agg.A]))
         agents = tuple(set([a.agent for a in agg.A]))
         types = tuple(set([a.type for a in agg.A]))
@@ -607,7 +607,7 @@ def _findDependencies(setting, mechanism, agg, quiet=False, addAnonymity=False):
                 addDependency(agg, act, accessor)
     for a in agg.A:
         if not quiet:
-            print a,
+            logging.info(a)
         while True:
             finished = True
             agg._makeArcDict()
@@ -631,9 +631,9 @@ def _findDependencies(setting, mechanism, agg, quiet=False, addAnonymity=False):
             if finished:
                 break
         if not quiet:
-            print
+            logging.info()
     if not quiet:
-        print "Done."
+        logging.info("Done.")
 
 
 class _PayoffFn(object):
@@ -712,32 +712,32 @@ def structureInference(setting, mechanism, agg, quiet=False, bbsi_level=0, metri
     metrics['BNFG-size'] = agg.sizeAsNFG()
     metrics['Post-WBSI size'] = agg.sizeAsAGG()
     if not quiet:
-        print "WBSI time:", metrics['WBSI-time']
-        print "BNFG size:", metrics['BNFG-size']
-        print "Post-WBSI size:", metrics['Post-WBSI size']
+        logging.info("WBSI time: %s" % metrics['WBSI-time'])
+        logging.info("BNFG size: %s" % metrics['BNFG-size'])
+        logging.info("Post-WBSI size:" % metrics['Post-WBSI size'])
     if bbsi_level > 0:
         bbsi.preprocess(agg)
         if bbsi_level == 2:
             if not quiet:
-                print "Performing anonymity-favoring cuts."
+                logging.info("Performing anonymity-favoring cuts.")
                 start = time.time()
             bbsi.anonymityCuts(agg)
             metrics['anon-size'] = agg.sizeAsAGG()
             metrics['anon-time'] = time.time() - start
             if not quiet:
-                print "Post-anonymity-cut size:", metrics['anon-size']
-                print "anonymity-cut time:", metrics['anon-time']
+                logging.info("Post-anonymity-cut size:", metrics['anon-size'])
+                logging.info("anonymity-cut time:", metrics['anon-time'])
 
         if not quiet:
-            print "General BBSI:"
+            logging.info("General BBSI:")
         bbsi.compressByILS(agg)
         if not quiet:
-            print "Done."
+            logging.info("Done.")
         metrics['BBSI-size'] = agg.sizeAsAGG()
         metrics['BBSI-time'] = time.time() - start
         if not quiet:
-            print "Post-BBSI size:", metrics['BBSI-size']
-            print "BBSI time:", metrics['BBSI-time']
+            logging.info("Post-BBSI size:", metrics['BBSI-size'])
+            logging.info("BBSI time:", metrics['BBSI-time'])
     return agg
 
 

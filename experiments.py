@@ -11,6 +11,7 @@ from posec.applications.position_auctions import Varian
 import argparse
 import redis
 import json
+import logging
 
 def two_approval(n, m_candidates=5, num_types=6):
     # Outcomes - the candiate that gets elected
@@ -151,16 +152,18 @@ if __name__ == '__main__':
     parser.add_argument('--host', type=str, help="redis host", required=True)
     parser.add_argument('--port', type=int, help="redis port", required=True)
     parser.add_argument('--file', type=str, help="output file", required=True)
-    parser.add_argument('--logfile', type=str, help="log file", required=True)
+    parser.add_argument('--log', type=str, help="log file", default="posec.log")
     args = parser.parse_args()
     r = redis.StrictRedis(host=args.host, port=args.port)
     q = args.qname
+
+    logging.basicConfig(format='%(asctime)-15s [%(levelname)s] %(message)s', level=logging.INFO, filename=args.logfile)
+
     with open(args.logfile, 'w') as logfile:
         with redirect_stdout(logfile):
             while True:
                 remaining_jobs = r.llen(q)
-                print "There are %d jobs remaining" % (remaining_jobs)
-                print time.ctime()
+                logging.info("There are %d jobs remaining" % (remaining_jobs))
                 instance = r.rpoplpush(q, q + '_PROCESSING')
                 if instance is None:
                     break
@@ -171,7 +174,7 @@ if __name__ == '__main__':
                     'vote': None
                 }
                 job['fn'] = g2f[job['game']]
-                print "Running job %s" % job
+                logging.info("Running job %s" % job)
                 metrics = bbsi_check(job['n'], job['seed'], job['fn'])
                 with open(args.file, "a") as output:
                     output.write(json.dumps(metrics)+'\n')
