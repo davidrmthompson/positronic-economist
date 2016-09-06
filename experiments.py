@@ -133,18 +133,8 @@ def bbsi_check(n_players, seed, fn):
     setting, m = fn(n_players, seed)
     metrics = dict(n_players=n_players, seed=seed, game=fn.__name__)
     agg = makeAGG(setting, m, bbsi_level=2, metrics=metrics)
-    agg.saveToFile("baggs/%s/%s.bagg" % fn.__name__.upper(), name)
+    agg.saveToFile("baggs/%s/%s.bagg" % (fn.__name__.upper(), name))
     return metrics
-
-from contextlib import contextmanager
-@contextmanager
-def redirect_stdout(new_target):
-    """Redirect stdout to a file (Input is a file object)"""
-    old_target, sys.stdout = sys.stdout, new_target  # replace sys.stdout
-    try:
-        yield new_target  # run some code with the replaced stdout
-    finally:
-        sys.stdout = old_target  # restore to the previous value
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -152,34 +142,33 @@ if __name__ == '__main__':
     parser.add_argument('--host', type=str, help="redis host", required=True)
     parser.add_argument('--port', type=int, help="redis port", required=True)
     parser.add_argument('--file', type=str, help="output file", required=True)
-    parser.add_argument('--log', type=str, help="log file", default="posec.log")
+    parser.add_argument('--logfile', type=str, help="log file", default="posec.log")
     args = parser.parse_args()
     r = redis.StrictRedis(host=args.host, port=args.port)
     q = args.qname
 
     logging.basicConfig(format='%(asctime)-15s [%(levelname)s] %(message)s', level=logging.INFO, filename=args.logfile)
+    logging.getLogger().addHandler(logging.StreamHandler())
 
-    with open(args.logfile, 'w') as logfile:
-        with redirect_stdout(logfile):
-            while True:
-                remaining_jobs = r.llen(q)
-                logging.info("There are %d jobs remaining" % (remaining_jobs))
-                instance = r.rpoplpush(q, q + '_PROCESSING')
-                if instance is None:
-                    break
-                job = json.loads(instance)
-                g2f = {
-                    'GFP': gfp,
-                    'GSP': gsp,
-                    'vote': None
-                }
-                job['fn'] = g2f[job['game']]
-                logging.info("Running job %s" % job)
-                metrics = bbsi_check(job['n'], job['seed'], job['fn'])
-                with open(args.file, "a") as output:
-                    output.write(json.dumps(metrics)+'\n')
-                r.lrem(q + '_PROCESSING', 1, instance)
-            print "ALL DONE!"
+    while True:
+        remaining_jobs = r.llen(q)
+        logging.info("There are %d jobs remaining" % (remaining_jobs))
+        instance = r.rpoplpush(q, q + '_PROCESSING')
+        if instance is None:
+            break
+        job = json.loads(instance)
+        g2f = {
+            'GFP': gfp,
+            'GSP': gsp,
+            'vote': None
+        }
+        job['fn'] = g2f[job['game']]
+        logging.info("Running job %s" % job)
+        metrics = bbsi_check(job['n'], job['seed'], job['fn'])
+        with open(args.file, "a") as output:
+            output.write(json.dumps(metrics)+'\n')
+        r.lrem(q + '_PROCESSING', 1, instance)
+    print "ALL DONE!"
 
 
     # for i in range(4,12):

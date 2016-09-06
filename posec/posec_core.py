@@ -630,8 +630,6 @@ def _findDependencies(setting, mechanism, agg, quiet=False, addAnonymity=False):
                     break
             if finished:
                 break
-        if not quiet:
-            logging.info()
     if not quiet:
         logging.info("Done.")
 
@@ -714,7 +712,7 @@ def structureInference(setting, mechanism, agg, quiet=False, bbsi_level=0, metri
     if not quiet:
         logging.info("WBSI time: %s" % metrics['WBSI-time'])
         logging.info("BNFG size: %s" % metrics['BNFG-size'])
-        logging.info("Post-WBSI size:" % metrics['Post-WBSI size'])
+        logging.info("Post-WBSI size: %s" % metrics['Post-WBSI size'])
     if bbsi_level > 0:
         bbsi.preprocess(agg)
         if bbsi_level == 2:
@@ -725,8 +723,8 @@ def structureInference(setting, mechanism, agg, quiet=False, bbsi_level=0, metri
             metrics['anon-size'] = agg.sizeAsAGG()
             metrics['anon-time'] = time.time() - start
             if not quiet:
-                logging.info("Post-anonymity-cut size:", metrics['anon-size'])
-                logging.info("anonymity-cut time:", metrics['anon-time'])
+                logging.info("Post-anonymity-cut size: %d", metrics['anon-size'])
+                logging.info("anonymity-cut time: %s" % metrics['anon-time'])
 
         if not quiet:
             logging.info("General BBSI:")
@@ -736,8 +734,8 @@ def structureInference(setting, mechanism, agg, quiet=False, bbsi_level=0, metri
         metrics['BBSI-size'] = agg.sizeAsAGG()
         metrics['BBSI-time'] = time.time() - start
         if not quiet:
-            logging.info("Post-BBSI size:", metrics['BBSI-size'])
-            logging.info("BBSI time:", metrics['BBSI-time'])
+            logging.info("Post-BBSI size: %d" % metrics['BBSI-size'])
+            logging.info("BBSI time: %s" % metrics['BBSI-time'])
     return agg
 
 
