@@ -114,13 +114,13 @@ def two_approval(n, m_candidates=5, num_types=6):
 
 def gfp(n, seed=None):
     #n, m, k, seed = None
-    setting = Varian(n, 8, 10, seed)
+    setting = Varian(n, 3, 15, seed)
     m = position_auctions.NoExternalityPositionAuction(pricing="GFP", squashing=0.0)
     return setting, m
 
 def gsp(n, seed=None):
     #n, m, k, seed = None
-    setting = Varian(n, 8, 10, seed)
+    setting = Varian(n, 3, 15, seed)
     m = position_auctions.NoExternalityPositionAuction(pricing="GSP", squashing=1.0)
     return setting, m
 

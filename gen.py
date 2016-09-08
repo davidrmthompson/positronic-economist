@@ -14,6 +14,6 @@ if __name__=='__main__':
     for game in ['GSP', 'GFP']:
 	    for n in reversed(range(2,13)):
 	    	for seed in range(1,51):
-	    		job = {'game': game, 'n': n, 'seed': seed}
+	    		job = {'game': game, 'n': n, 'seed': seed, 'bbsi_level'=1}
 	    		r.rpush(args.qname, json.dumps(job))
     print r.llen(args.qname)
