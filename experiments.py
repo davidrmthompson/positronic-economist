@@ -129,7 +129,7 @@ def bbsi_check(n_players, seed, fn, bbsi_level):
     print name
     setting, m = fn(n_players, seed)
     metrics = dict(n_players=n_players, seed=seed, game=fn.__name__, bbsi_level=bbsi_level)
-    agg = makeAGG(setting, m, bbsi_level=2, metrics=metrics)
+    agg = makeAGG(setting, m, bbsi_level=bbsi_level, metrics=metrics)
     agg.saveToFile("baggs/%s/%s.bagg" % (fn.__name__.upper(), name))
     return metrics
 

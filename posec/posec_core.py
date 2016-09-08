@@ -705,7 +705,7 @@ def cputime():
     return cpu_info.ru_utime + cpu_info.ru_stime
 
 
-def structureInference(setting, mechanism, agg, quiet=False, bbsi_level=0, metrics=None):
+def _structureInference(setting, mechanism, agg, quiet=False, bbsi_level=0, metrics=None):
     if metrics is None:
         metrics = dict()
 
@@ -812,7 +812,7 @@ bbsi_level==2 means to do extensive BBSI (suitable for discovering coarse struct
     agg = pyagg.AGG(_N, _A, _S, _F, _v, _f, _u)
     for a in _A:
         _u[a].agg = agg
-    return structureInference(setting, mechanism, agg, quiet=quiet, bbsi_level=bbsi_level, metrics=metrics)
+    return _structureInference(setting, mechanism, agg, quiet=quiet, bbsi_level=bbsi_level, metrics=metrics)
 
 _PosEc_BAGG_type = namedtuple("_PosEc_BAGG_type", ("agent", "type"))
 
@@ -877,7 +877,7 @@ bbsi_level==2 means to do extensive BBSI (suitable for discovering coarse struct
     agg = pyagg.BAGG(_N, _Theta, _P, _A, _S, _F, _v, _f, _u)
     for a in _A:
         _u[a].agg = agg
-    return structureInference(setting, mechanism, agg, quiet=quiet, bbsi_level=bbsi_level, metrics=metrics)
+    return _structureInference(setting, mechanism, agg, quiet=quiet, bbsi_level=bbsi_level, metrics=metrics)
 
 '''
     Things I'm currently missing:
