@@ -124,11 +124,11 @@ def gsp(n, seed=None):
     m = position_auctions.NoExternalityPositionAuction(pricing="GSP", squashing=1.0)
     return setting, m
 
-def bbsi_check(n_players, seed, fn):
+def bbsi_check(n_players, seed, fn, bbsi_level):
     name = "%s_%d_%d" % (fn.__name__, n_players, seed)
     print name
     setting, m = fn(n_players, seed)
-    metrics = dict(n_players=n_players, seed=seed, game=fn.__name__)
+    metrics = dict(n_players=n_players, seed=seed, game=fn.__name__, bbsi_level=bbsi_level)
     agg = makeAGG(setting, m, bbsi_level=2, metrics=metrics)
     agg.saveToFile("baggs/%s/%s.bagg" % (fn.__name__.upper(), name))
     return metrics
@@ -136,58 +136,41 @@ def bbsi_check(n_players, seed, fn):
 def test():
     logging.basicConfig(format='%(asctime)-15s [%(levelname)s] %(message)s', level=logging.INFO, filename='posec.log')
     logging.getLogger().addHandler(logging.StreamHandler())
-    setting = Varian(4, 2, 8, 1)
+    setting = Varian(10, 3, 15, 1)
     m = position_auctions.NoExternalityPositionAuction(pricing="GSP", squashing=1.0)
-    agg = makeAGG(setting, m, bbsi_level=2)
+    agg = makeAGG(setting, m, bbsi_level=0)
 
 
 if __name__ == '__main__':
-    test()
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('--qname', type=str, help="redis queue", required=True)
-    # parser.add_argument('--host', type=str, help="redis host", required=True)
-    # parser.add_argument('--port', type=int, help="redis port", required=True)
-    # parser.add_argument('--file', type=str, help="output file", required=True)
-    # parser.add_argument('--logfile', type=str, help="log file", default="posec.log")
-    # args = parser.parse_args()
-    # r = redis.StrictRedis(host=args.host, port=args.port)
-    # q = args.qname
-    #
-    # logging.basicConfig(format='%(asctime)-15s [%(levelname)s] %(message)s', level=logging.INFO, filename=args.logfile)
-    # logging.getLogger().addHandler(logging.StreamHandler())
-    #
-    # while True:
-    #     remaining_jobs = r.llen(q)
-    #     logging.info("There are %d jobs remaining" % (remaining_jobs))
-    #     instance = r.rpoplpush(q, q + '_PROCESSING')
-    #     if instance is None:
-    #         break
-    #     job = json.loads(instance)
-    #     g2f = {
-    #         'GFP': gfp,
-    #         'GSP': gsp,
-    #         'vote': None
-    #     }
-    #     job['fn'] = g2f[job['game']]
-    #     logging.info("Running job %s" % job)
-    #     metrics = bbsi_check(job['n'], job['seed'], job['fn'])
-    #     with open(args.file, "a") as output:
-    #         output.write(json.dumps(metrics)+'\n')
-    #     r.lrem(q + '_PROCESSING', 1, instance)
-    # print "ALL DONE!"
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--qname', type=str, help="redis queue", required=True)
+    parser.add_argument('--host', type=str, help="redis host", required=True)
+    parser.add_argument('--port', type=int, help="redis port", required=True)
+    parser.add_argument('--file', type=str, help="output file", required=True)
+    parser.add_argument('--logfile', type=str, help="log file", default="posec.log")
+    args = parser.parse_args()
+    r = redis.StrictRedis(host=args.host, port=args.port)
+    q = args.qname
 
+    logging.basicConfig(format='%(asctime)-15s [%(levelname)s] %(message)s', level=logging.INFO, filename=args.logfile)
+    logging.getLogger().addHandler(logging.StreamHandler())
 
-    # for i in range(4,12):
-    #     for seed in range(1,51):
-    #         bbsi_check(i, seed, gsp)
-    # nfg = []
-    # agg = []
-    # runtimes = []
-    # for i in range(2,13,2):
-    #     nfg_size, agg_size, runtime = slopppy_two_approval(i)
-    #     nfg.append(nfg_size)
-    #     agg.append(agg_size)
-    #     runtimes.append(runtime)
-    # print nfg
-    # print agg
-    # print runtimes
+    while True:
+        remaining_jobs = r.llen(q)
+        logging.info("There are %d jobs remaining" % (remaining_jobs))
+        instance = r.rpoplpush(q, q + '_PROCESSING')
+        if instance is None:
+            break
+        job = json.loads(instance)
+        g2f = {
+            'GFP': gfp,
+            'GSP': gsp,
+            'vote': None
+        }
+        job['fn'] = g2f[job['game']]
+        logging.info("Running job %s" % job)
+        metrics = bbsi_check(job['n'], job['seed'], job['fn'], job['bbsi_level'])
+        with open(args.file, "a") as output:
+            output.write(json.dumps(metrics)+'\n')
+        r.lrem(q + '_PROCESSING', 1, instance)
+    print "ALL DONE!"
