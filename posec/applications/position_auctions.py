@@ -102,12 +102,13 @@ class NoExternalityPositionAuction(posec.ProjectedMechanism):
         return _WeightedBid(b, eb)
 
     def A(self, setting, i, theta_i):
+        # Exclude the obviously dominated strategy of bidding above your value
         if isinstance(theta_i.value, tuple):
-            maxBid = int(math.ceil(max(theta_i.value)))
+            max_bid = int(math.ceil(max(theta_i.value)))
         else:
-            maxBid = int(math.ceil(theta_i.value))
-        minBid = int(math.ceil(self.reservePPC(i, theta_i)))
-        bids = range(minBid, maxBid + 1)
+            max_bid = int(math.ceil(theta_i.value))
+        min_bid = int(math.ceil(self.reservePPC(i, theta_i)))
+        bids = range(min_bid, max_bid + 1)
         if 0 not in bids:
             bids = [0] + bids
         if self.pricing == "Anchor":
@@ -124,23 +125,24 @@ class NoExternalityPositionAuction(posec.ProjectedMechanism):
             ties = a_N.sum(
                 [a for a in a_N.actions if a.effective_bid == a_N[i].effective_bid])
             return range(higher, higher + ties)
-        for j in range(i):
-            if a_N.plays([a for a in a_N.actions if a.effective_bid == a_N[i].effective_bid]):
-                higher += 1
-            return [higher]
+        else:
+            for j in range(i):
+                if a_N.plays([a for a in a_N.actions if a.effective_bid == a_N[i].effective_bid]):
+                    higher += 1
+                return [higher]
 
     def ppc(self, i, theta_i, a_N):
         if self.pricing == "GFP":
             return a_N[i].bid
-        if self.pricing == "GSP":
+        elif self.pricing == "GSP":
             nextbid = a_N.max(
                 [a for a in a_N.actions if a.effective_bid < a_N[i].effective_bid], lambda x: a.effective_bid)
             if nextbid is None:
                 return self.reservePPC(i, theta_i)
-            ppc = max([nextbid / self.q(theta_i), self.reservePPC(i, theta_i)])
-            # FIXME: Rounding
-            return ppc
-        if self.pricing == "Anchor":
+            else:
+                # FIXME: Rounding
+                return max([nextbid / self.q(theta_i), self.reservePPC(i, theta_i)])
+        elif self.pricing == "Anchor":
             nextbid = a_N.max(
                 [a for a in a_N.actions if a.effective_bid < a_N[i].effective_bid], lambda x: a.effective_bid)
             if nextbid is None:
@@ -236,6 +238,7 @@ def Varian(n, m, k, seed=None):
         beta = r.random()
         value = r.random() * k
         values.append(tuple([value] * n))
+
         ctrs.append(tuple([alpha[i] * beta for i in range(n)]))
         qualities.append(beta)
     return NoExternalitySetting(values, ctrs, qualities)

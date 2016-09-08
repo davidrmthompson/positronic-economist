@@ -711,7 +711,7 @@ def structureInference(setting, mechanism, agg, quiet=False, bbsi_level=0, metri
 
     start = time.time()
     start_cpu = cputime()
-    _findDependencies(setting, mechanism, agg, quiet, bbsi_level == 2)
+    _findDependencies(setting, mechanism, agg, quiet, addAnonymity=bbsi_level == 2)
     metrics['WBSI-time'] = time.time() - start
     metrics['WBSI-CPU'] = cputime() - start_cpu
     metrics['BNFG-size'] = agg.sizeAsNFG()
@@ -760,6 +760,7 @@ def makeAGG(setting, mechanism, symmetry=False, transform=None, quiet=False, bbs
 
 transform is a function (setting,i,theta_i,a_i,o,theta_N) that returns a real value
 quiet==True produces no standard output
+symmetry - if True, players of the same type share action nodes. Otherwise, there will be an action node for each n / theta / a combo
 bbsi_level==0 means to do no BBSI
 bbsi_level==1 means to do limited BBSI (suitable for fine-tuning games)
 bbsi_level==2 means to do extensive BBSI (suitable for discovering coarse structure)

@@ -7,7 +7,7 @@ from posec import mathtools
 import time
 import collections
 from posec.applications import position_auctions
-from posec.applications.position_auctions import Varian
+from posec.applications.position_auctions import *
 import argparse
 import redis
 import json
@@ -124,9 +124,6 @@ def gsp(n, seed=None):
     m = position_auctions.NoExternalityPositionAuction(pricing="GSP", squashing=1.0)
     return setting, m
 
-
-
-
 def bbsi_check(n_players, seed, fn):
     name = "%s_%d_%d" % (fn.__name__, n_players, seed)
     print name
@@ -136,44 +133,48 @@ def bbsi_check(n_players, seed, fn):
     agg.saveToFile("baggs/%s/%s.bagg" % (fn.__name__.upper(), name))
     return metrics
 
-# def test():
-#     logging.basicConfig(format='%(asctime)-15s [%(levelname)s] %(message)s', level=logging.INFO, filename='posec.log')
-#     logging.getLogger().addHandler(logging.StreamHandler())
-#     bbsi_check(4, 4, gsp)
+def test():
+    logging.basicConfig(format='%(asctime)-15s [%(levelname)s] %(message)s', level=logging.INFO, filename='posec.log')
+    logging.getLogger().addHandler(logging.StreamHandler())
+    setting = Varian(4, 2, 8, 1)
+    m = position_auctions.NoExternalityPositionAuction(pricing="GSP", squashing=1.0)
+    agg = makeAGG(setting, m, bbsi_level=2)
+
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--qname', type=str, help="redis queue", required=True)
-    parser.add_argument('--host', type=str, help="redis host", required=True)
-    parser.add_argument('--port', type=int, help="redis port", required=True)
-    parser.add_argument('--file', type=str, help="output file", required=True)
-    parser.add_argument('--logfile', type=str, help="log file", default="posec.log")
-    args = parser.parse_args()
-    r = redis.StrictRedis(host=args.host, port=args.port)
-    q = args.qname
-
-    logging.basicConfig(format='%(asctime)-15s [%(levelname)s] %(message)s', level=logging.INFO, filename=args.logfile)
-    logging.getLogger().addHandler(logging.StreamHandler())
-
-    while True:
-        remaining_jobs = r.llen(q)
-        logging.info("There are %d jobs remaining" % (remaining_jobs))
-        instance = r.rpoplpush(q, q + '_PROCESSING')
-        if instance is None:
-            break
-        job = json.loads(instance)
-        g2f = {
-            'GFP': gfp,
-            'GSP': gsp,
-            'vote': None
-        }
-        job['fn'] = g2f[job['game']]
-        logging.info("Running job %s" % job)
-        metrics = bbsi_check(job['n'], job['seed'], job['fn'])
-        with open(args.file, "a") as output:
-            output.write(json.dumps(metrics)+'\n')
-        r.lrem(q + '_PROCESSING', 1, instance)
-    print "ALL DONE!"
+    test()
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('--qname', type=str, help="redis queue", required=True)
+    # parser.add_argument('--host', type=str, help="redis host", required=True)
+    # parser.add_argument('--port', type=int, help="redis port", required=True)
+    # parser.add_argument('--file', type=str, help="output file", required=True)
+    # parser.add_argument('--logfile', type=str, help="log file", default="posec.log")
+    # args = parser.parse_args()
+    # r = redis.StrictRedis(host=args.host, port=args.port)
+    # q = args.qname
+    #
+    # logging.basicConfig(format='%(asctime)-15s [%(levelname)s] %(message)s', level=logging.INFO, filename=args.logfile)
+    # logging.getLogger().addHandler(logging.StreamHandler())
+    #
+    # while True:
+    #     remaining_jobs = r.llen(q)
+    #     logging.info("There are %d jobs remaining" % (remaining_jobs))
+    #     instance = r.rpoplpush(q, q + '_PROCESSING')
+    #     if instance is None:
+    #         break
+    #     job = json.loads(instance)
+    #     g2f = {
+    #         'GFP': gfp,
+    #         'GSP': gsp,
+    #         'vote': None
+    #     }
+    #     job['fn'] = g2f[job['game']]
+    #     logging.info("Running job %s" % job)
+    #     metrics = bbsi_check(job['n'], job['seed'], job['fn'])
+    #     with open(args.file, "a") as output:
+    #         output.write(json.dumps(metrics)+'\n')
+    #     r.lrem(q + '_PROCESSING', 1, instance)
+    # print "ALL DONE!"
 
 
     # for i in range(4,12):
