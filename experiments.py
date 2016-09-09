@@ -10,6 +10,7 @@ from collections import defaultdict
 import argparse
 import json
 import redis
+import os
 
 N_POSITIONS = 4
 N_BIDS = 20
@@ -232,13 +233,16 @@ def bbsi_check(n_players, seed, fn, bbsi_level):
     symmetry = True if fn == two_approval else False
     print "Symmetry", symmetry
     agg = makeAGG(setting, m, bbsi_level=bbsi_level, metrics=metrics, symmetry=symmetry)
-    agg.saveToFile("baggs/%s/%s.bagg" % (fn.__name__.upper(), name))
+    bagg_filedir = "baggs/%s" % fn.__name__.upper()
+    if not os.path.exists(bagg_filedir):
+        os.makedirs(bagg_filedir)
+    agg.saveToFile("%s/%s.bagg" % (bagg_filedir, name))
     return metrics
 
 def test():
     logging.basicConfig(format='%(asctime)-15s [%(levelname)s] %(message)s', level=logging.INFO, filename='posec.log')
     logging.getLogger().addHandler(logging.StreamHandler())
-    bbsi_check(4,1,bad_two_approval,1)
+    bbsi_check(4,1,gfp,1)
     # setting = Varian(10, 3, 15, 1)
     # m = position_auctions.NoExternalityPositionAuction(pricing="GSP", squashing=1.0)
     # agg = makeAGG(setting, m, bbsi_level=0)
