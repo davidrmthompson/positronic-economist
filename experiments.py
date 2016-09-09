@@ -1,78 +1,177 @@
 import itertools
+import logging
 import random
 
-import posec
 from posec import *
 from posec import mathtools
-import time
-import collections
 from posec.applications import position_auctions
 from posec.applications.position_auctions import *
+from collections import defaultdict
 import argparse
-import redis
 import json
-import logging
+import redis
 
-def two_approval(n, m_candidates=5, num_types=6):
-    # Outcomes - the candiate that gets elected
-    O = tuple("c" + str(i+1) for i in range(m_candidates))
+N_POSITIONS = 4
+N_BIDS = 20
 
-    # Pick some types, since too many is not computationally feasible
-    all_possible_rankings = mathtools.permutations(O)
-    Theta = [tuple(random.choice(all_possible_rankings)) for _ in range(num_types)]
 
-    # Get probabilities over these types
-    P = [UniformDistribution(Theta)] * n
-
-    def u(i, theta, o, a_i):
-        return len(O) - theta[i].index(o)
-
-    setting = BayesianSetting(n, O, Theta, P, u)
-
-    def A(setting, i, theta_i):
-        return itertools.combinations(setting.O, r=2)
-
-    def M(setting, i, theta_i, a_N):
-        scores = {o: a_N.sum([a for a in a_N.actions if a is not None and o in a]) for o in setting.O}
-        max_score = max(scores.values())
-        winners = [o for o in scores.keys() if scores[o] == max_score]
-        return posec.UniformDistribution(winners)
-
-    t0 = time.time()
-    agg = makeAGG(setting, ProjectedMechanism(A, M), symmetry=True)
-    t1 = time.time()
-    return agg.sizeAsAGG(), agg.sizeAsAGG(), t1-t0
-    # agg.saveToFile("paper_examples_voting.bagg")
-
-# def two_approval(n, m_candidates=5):
+# def two_approval(n, m_candidates=5, num_types=6):
 #     # Outcomes - the candiate that gets elected
 #     O = tuple("c" + str(i+1) for i in range(m_candidates))
 #
-#     # Pick some types
+#     # Pick some types, since too many is not computationally feasible
 #     all_possible_rankings = mathtools.permutations(O)
-#     Theta = [tuple(random.choice(all_possible_rankings)) for _ in range(n)]
+#     Theta = [tuple(random.choice(all_possible_rankings)) for _ in range(num_types)]
+#
+#     # Get probabilities over these types
+#     P = [UniformDistribution(Theta)] * n
 #
 #     def u(i, theta, o, a_i):
 #         return len(O) - theta[i].index(o)
 #
-#     setting = Setting(n, O, Theta, u)
+#     setting = BayesianSetting(n, O, Theta, P, u)
 #
 #     def A(setting, i, theta_i):
 #         return itertools.combinations(setting.O, r=2)
 #
-#     def M(setting, a_N):
-#         scores = {}
-#         for o in setting.O:
-#             scores[o] = a_N.sum([a for a in a_N.actions if a is not None and o in a])
+#     def M(setting, i, theta_i, a_N):
+#         scores = {o: a_N.sum([a for a in a_N.actions if a is not None and o in a]) for o in setting.O}
 #         max_score = max(scores.values())
 #         winners = [o for o in scores.keys() if scores[o] == max_score]
 #         return posec.UniformDistribution(winners)
 #
-#     mechanism = Mechanism(A, M)
-#
-#     agg = makeAGG(setting, mechanism, symmetry=True)
-#     return agg.sizeAsNFG(), agg.sizeAsAGG(), t1-t0
+#     t0 = time.time()
+#     agg = makeAGG(setting, ProjectedMechanism(A, M), symmetry=True)
+#     t1 = time.time()
+#     return agg.sizeAsAGG(), agg.sizeAsAGG(), t1-t0
+    # agg.saveToFile("paper_examples_voting.bagg")
 
+def two_approval_setting(n):
+    m_candidates = 5
+    # Outcomes - the candiate that gets elected
+    O = tuple("c" + str(i + 1) for i in range(m_candidates))
+
+    # Pick some types
+    all_possible_rankings = mathtools.permutations(O)
+    Theta = [tuple(random.choice(all_possible_rankings)) for _ in range(n)]
+
+    def u(i, theta, o, a_i):
+        return theta[i].index(o)
+
+    return Setting(n, O, Theta, u)
+
+
+def two_approval_A(setting, i, theta_i):
+    return itertools.combinations(setting.O, r=2)
+
+def two_approval(n, seed=None):
+    random.seed(seed)
+    setting = two_approval_setting(n)
+
+    def M(setting, a_N):
+        scores = {}
+        for o in setting.O:
+            scores[o] = a_N.sum([a for a in a_N.actions if o in a])
+        max_score = max(scores.values())
+        winners = [o for o in scores.keys() if scores[o] == max_score]
+        return posec.UniformDistribution(winners)
+    mechanism = Mechanism(two_approval_A, M)
+
+    return setting, mechanism
+
+def bad_two_approval(n, seed=None):
+    random.seed(seed)
+    setting = two_approval_setting(n)
+
+    # Poorly specified version!
+    def M(setting, a_N):
+        scores = defaultdict(int)
+        for i in range(setting.n):
+            action = a_N[i]
+            for vote in action:
+                scores[vote] += 1
+        max_score = max(scores.values())
+        winners = [o for o in scores.keys() if scores[o] == max_score]
+        return posec.UniformDistribution(winners)
+
+    mechanism = Mechanism(two_approval_A, M)
+    return setting, mechanism
+
+# def bad_gfp(n, seed=None):
+#     r.seed(seed)
+#     m = N_POSITIONS
+#     k = N_BIDS
+#
+#     _PositionAuctionOutcome = namedtuple(
+#         "PositionAuctionOutcome", ["allocation", "ppcs"])
+#     _NoExternalityType = namedtuple(
+#         "NoExternalityType", ["value", "ctr", "quality"])
+#     _WeightedBid = namedtuple("WeightedBid", ["bid", "effective_bid"])
+#
+#     alpha = makeAlpha(n, m)
+#     values = []
+#     ctrs = []
+#     qualities = []
+#     for i in range(n):
+#         beta = r.random()
+#         value = r.random() * k
+#         values.append(tuple([value] * n))
+#
+#         ctrs.append(tuple([alpha[i] * beta for i in range(n)]))
+#         qualities.append(beta)
+#
+#         n = len(values)
+#         allocations = Permutations(range(n))
+#         payments = posec.RealSpace(n)
+#         O = posec.CartesianProduct(
+#             allocations, payments, memberType=_PositionAuctionOutcome)
+#         Theta = []
+#         for i in range(n):
+#             Theta.append(
+#                 _NoExternalityType(tuple(values[i]), tuple(ctrs[i]), qualities[i]))
+#
+#     def u(i, theta, o, a_i):
+#         if i not in o.allocation:
+#             return 0.0
+#         else:
+#             pos = o.allocation.index(i)
+#             ppc = o.ppcs[i]
+#             ctr = theta[i].ctr[pos]
+#             v = theta[i].value[pos]
+#             return ctr * (v - ppc)
+#
+#
+#     # TODO: GSP
+#     def q(a):
+#         return 1
+#
+#     setting = Setting(n, O, Theta, u)
+#
+#     def A(self, setting, i, theta_i):
+#         # Exclude the obviously dominated strategy of bidding above your value
+#         max_bid = int(math.ceil(theta_i.value))
+#         min_bid = 1
+#         bids = range(min_bid, max_bid + 1)
+#         if 0 not in bids:
+#             bids = [0] + bids
+#         return [_WeightedBid(theta_i, b, q(theta_i) * b) for b in bids]
+#
+#     def M(setting, a_N):
+#         acts = []
+#         for i in range(setting.n):
+#             bid = a_N[i].effective_bid
+#             acts.append({'id': i, 'bid': bid})
+#         acts.sort(key=lambda x: x.bid)
+#         allocations = []
+#         payments = []
+#         for a in acts:
+#
+#
+#
+#         return posec.UniformDistribution(winners)
+#
+#     mechanism = Mechanism(A, M)
+#     return setting, mechanism
 
 # def slopppy_two_approval(n, m_candidates=5):
 #     # Outcomes - the candiate that gets elected
@@ -112,33 +211,37 @@ def two_approval(n, m_candidates=5, num_types=6):
 #
 #     return agg.sizeAsNFG(), agg.sizeAsAGG(), t1 - t0
 
+
 def gfp(n, seed=None):
     #n, m, k, seed = None
-    setting = Varian(n, 3, 15, seed)
+    setting = Varian(n, N_POSITIONS, N_BIDS, seed)
     m = position_auctions.NoExternalityPositionAuction(pricing="GFP", squashing=0.0)
     return setting, m
 
 def gsp(n, seed=None):
     #n, m, k, seed = None
-    setting = Varian(n, 3, 15, seed)
+    setting = Varian(n, N_POSITIONS, N_BIDS, seed)
     m = position_auctions.NoExternalityPositionAuction(pricing="GSP", squashing=1.0)
     return setting, m
 
 def bbsi_check(n_players, seed, fn, bbsi_level):
     name = "%s_%d_%d" % (fn.__name__, n_players, seed)
     print name
-    setting, m = fn(n_players, seed)
+    setting, m = fn(n_players, seed=seed)
     metrics = dict(n_players=n_players, seed=seed, game=fn.__name__, bbsi_level=bbsi_level)
-    agg = makeAGG(setting, m, bbsi_level=bbsi_level, metrics=metrics)
+    symmetry = True if fn == two_approval else False
+    print "Symmetry", symmetry
+    agg = makeAGG(setting, m, bbsi_level=bbsi_level, metrics=metrics, symmetry=symmetry)
     agg.saveToFile("baggs/%s/%s.bagg" % (fn.__name__.upper(), name))
     return metrics
 
 def test():
     logging.basicConfig(format='%(asctime)-15s [%(levelname)s] %(message)s', level=logging.INFO, filename='posec.log')
     logging.getLogger().addHandler(logging.StreamHandler())
-    setting = Varian(10, 3, 15, 1)
-    m = position_auctions.NoExternalityPositionAuction(pricing="GSP", squashing=1.0)
-    agg = makeAGG(setting, m, bbsi_level=0)
+    bbsi_check(4,1,bad_two_approval,1)
+    # setting = Varian(10, 3, 15, 1)
+    # m = position_auctions.NoExternalityPositionAuction(pricing="GSP", squashing=1.0)
+    # agg = makeAGG(setting, m, bbsi_level=0)
 
 
 if __name__ == '__main__':
@@ -165,7 +268,8 @@ if __name__ == '__main__':
         g2f = {
             'GFP': gfp,
             'GSP': gsp,
-            'vote': None
+            'vote': two_approval,
+            'vote_bad': bad_two_approval
         }
         job['fn'] = g2f[job['game']]
         logging.info("Running job %s" % job)
