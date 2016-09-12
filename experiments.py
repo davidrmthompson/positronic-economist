@@ -6,6 +6,7 @@ from posec import *
 from posec import mathtools
 from posec.applications import position_auctions
 from posec.applications.position_auctions import *
+from posec.applications.position_auctions_bad import NoExternalityPositionAuction as BadAuc
 from collections import defaultdict
 import argparse
 import json
@@ -98,129 +99,22 @@ def bad_two_approval(n, seed=None):
     mechanism = Mechanism(two_approval_A, M)
     return setting, mechanism
 
-# def bad_gfp(n, seed=None):
-#     r.seed(seed)
-#     m = N_POSITIONS
-#     k = N_BIDS
-#
-#     _PositionAuctionOutcome = namedtuple(
-#         "PositionAuctionOutcome", ["allocation", "ppcs"])
-#     _NoExternalityType = namedtuple(
-#         "NoExternalityType", ["value", "ctr", "quality"])
-#     _WeightedBid = namedtuple("WeightedBid", ["bid", "effective_bid"])
-#
-#     alpha = makeAlpha(n, m)
-#     values = []
-#     ctrs = []
-#     qualities = []
-#     for i in range(n):
-#         beta = r.random()
-#         value = r.random() * k
-#         values.append(tuple([value] * n))
-#
-#         ctrs.append(tuple([alpha[i] * beta for i in range(n)]))
-#         qualities.append(beta)
-#
-#         n = len(values)
-#         allocations = Permutations(range(n))
-#         payments = posec.RealSpace(n)
-#         O = posec.CartesianProduct(
-#             allocations, payments, memberType=_PositionAuctionOutcome)
-#         Theta = []
-#         for i in range(n):
-#             Theta.append(
-#                 _NoExternalityType(tuple(values[i]), tuple(ctrs[i]), qualities[i]))
-#
-#     def u(i, theta, o, a_i):
-#         if i not in o.allocation:
-#             return 0.0
-#         else:
-#             pos = o.allocation.index(i)
-#             ppc = o.ppcs[i]
-#             ctr = theta[i].ctr[pos]
-#             v = theta[i].value[pos]
-#             return ctr * (v - ppc)
-#
-#
-#     # TODO: GSP
-#     def q(a):
-#         return 1
-#
-#     setting = Setting(n, O, Theta, u)
-#
-#     def A(self, setting, i, theta_i):
-#         # Exclude the obviously dominated strategy of bidding above your value
-#         max_bid = int(math.ceil(theta_i.value))
-#         min_bid = 1
-#         bids = range(min_bid, max_bid + 1)
-#         if 0 not in bids:
-#             bids = [0] + bids
-#         return [_WeightedBid(theta_i, b, q(theta_i) * b) for b in bids]
-#
-#     def M(setting, a_N):
-#         acts = []
-#         for i in range(setting.n):
-#             bid = a_N[i].effective_bid
-#             acts.append({'id': i, 'bid': bid})
-#         acts.sort(key=lambda x: x.bid)
-#         allocations = []
-#         payments = []
-#         for a in acts:
-#
-#
-#
-#         return posec.UniformDistribution(winners)
-#
-#     mechanism = Mechanism(A, M)
-#     return setting, mechanism
+def bad_gfp(n, seed=None):
+    setting = Varian(n, N_POSITIONS, N_BIDS, seed)
+    m = BadAuc(pricing="GFP", squashing=0.0)
+    return setting, m
 
-# def slopppy_two_approval(n, m_candidates=5):
-#     # Outcomes - the candiate that gets elected
-#     O = tuple("c" + str(i + 1) for i in range(m_candidates))
-#
-#     # Pick some types
-#     all_possible_rankings = mathtools.permutations(O)
-#     Theta = [tuple(random.choice(all_possible_rankings)) for _ in range(n)]
-#
-#     def u(i, theta, o, a_i):
-#         return len(O) - theta[i].index(o)
-#
-#     setting = Setting(n, O, Theta, u)
-#
-#     def A(setting, i, theta_i):
-#         return itertools.combinations(setting.O, r=2)
-#
-#     def M(setting, a_N):
-#         scores = collections.defaultdict(int)
-#         n = setting.n
-#         for i in range(n):
-#             action_i = a_N[i]
-#             o1, o2 = action_i
-#             scores[o1] += 1
-#             scores[o2] += 1
-#         max_score = max(scores.values())
-#         winners = [o for o in scores.keys() if scores[o] == max_score]
-#         return posec.UniformDistribution(winners)
-#
-#     mechanism = Mechanism(A, M)
-#
-#     t0 = time.time()
-#     agg = makeAGG(setting, mechanism, symmetry=False)#, bbsi_level=2)
-#     t1 = time.time()
-#     if n == 2:
-#         agg.saveToFile("wbsi_bad.bagg")
-#
-#     return agg.sizeAsNFG(), agg.sizeAsAGG(), t1 - t0
-
+def bad_gsp(n, seed=None):
+    setting = Varian(n, N_POSITIONS, N_BIDS, seed)
+    m = BadAuc(pricing="GSP", squashing=1.0)
+    return setting, m
 
 def gfp(n, seed=None):
-    #n, m, k, seed = None
     setting = Varian(n, N_POSITIONS, N_BIDS, seed)
     m = position_auctions.NoExternalityPositionAuction(pricing="GFP", squashing=0.0)
     return setting, m
 
 def gsp(n, seed=None):
-    #n, m, k, seed = None
     setting = Varian(n, N_POSITIONS, N_BIDS, seed)
     m = position_auctions.NoExternalityPositionAuction(pricing="GSP", squashing=1.0)
     return setting, m
@@ -271,7 +165,9 @@ if __name__ == '__main__':
         job = json.loads(instance)
         g2f = {
             'GFP': gfp,
+            'GFP_bad': bad_gfp,
             'GSP': gsp,
+            'GSP_bad': bad_gsp,
             'vote': two_approval,
             'vote_bad': bad_two_approval
         }
