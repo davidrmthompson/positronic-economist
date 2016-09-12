@@ -226,7 +226,7 @@ def gsp(n, seed=None):
     return setting, m
 
 def bbsi_check(n_players, seed, fn, bbsi_level):
-    name = "%s_%d_%d" % (fn.__name__, n_players, seed)
+    name = "%s_%d_%d_%d" % (fn.__name__, n_players, seed, bbsi_level)
     print name
     setting, m = fn(n_players, seed=seed)
     metrics = dict(n_players=n_players, seed=seed, game=fn.__name__, bbsi_level=bbsi_level)
