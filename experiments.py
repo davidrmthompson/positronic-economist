@@ -6,7 +6,6 @@ from posec import *
 from posec import mathtools
 from posec.applications import position_auctions
 from posec.applications.position_auctions import *
-from posec.applications.position_auctions_bad import NoExternalityPositionAuction as BadAuc
 from collections import defaultdict
 import argparse
 import json
@@ -101,12 +100,12 @@ def bad_two_approval(n, seed=None):
 
 def bad_gfp(n, seed=None):
     setting = Varian(n, N_POSITIONS, N_BIDS, seed)
-    m = BadAuc(pricing="GFP", squashing=0.0)
+    m = position_auctions.NoExternalityPositionAuction(pricing="GFP", squashing=0.0, bad=True)
     return setting, m
 
 def bad_gsp(n, seed=None):
     setting = Varian(n, N_POSITIONS, N_BIDS, seed)
-    m = BadAuc(pricing="GSP", squashing=1.0)
+    m = position_auctions.NoExternalityPositionAuction(pricing="GSP", squashing=1.0, bad=True)
     return setting, m
 
 def gfp(n, seed=None):

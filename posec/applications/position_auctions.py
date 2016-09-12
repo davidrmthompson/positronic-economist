@@ -73,11 +73,9 @@ class NoExternalitySetting(posec.ProjectedSetting):
 
 _WeightedBid = namedtuple("WeightedBid", ["bid", "effective_bid"])
 
-
-
 class NoExternalityPositionAuction(posec.ProjectedMechanism):
 
-    def __init__(self, reserve=1, squashing=1.0, reserveType="UWR", rounding=None, tieBreaking="Uniform", pricing="GSP"):
+    def __init__(self, reserve=1, squashing=1.0, reserveType="UWR", rounding=None, tieBreaking="Uniform", pricing="GSP", bad=False):
         self.reserve = reserve
         self.squashing = squashing
         assert reserveType in ["UWR", "QWR"]
@@ -89,6 +87,7 @@ class NoExternalityPositionAuction(posec.ProjectedMechanism):
         if pricing == "Anchor":
             assert reserveType == "UWR"
         self.pricing = pricing
+        self.bad = bad
 
     def q(self, theta_i):
         return math.pow(theta_i.quality, self.squashing)
@@ -119,10 +118,16 @@ class NoExternalityPositionAuction(posec.ProjectedMechanism):
     def projectedAllocations(self, i, theta_i, a_N):
         ''' Returns a list of positions (all the positions that can happen depending on how tie-breaking goes)
         the last element in the list means losing every tie-break '''
-        higher = a_N.sum(
+        if self.bad:
+            higher = sum([(a_N[j].effective_bid > a_N[i].effective_bid) * 1 for j in a_N.agents])
+        else:
+            higher = a_N.sum(
             [a for a in a_N.actions if a.effective_bid > a_N[i].effective_bid])
         if self.tieBreaking == "Uniform":
-            ties = a_N.sum(
+            if self.bad:
+                ties = sum([(a_N[j].effective_bid == a_N[i].effective_bid) * 1 for j in a_N.agents])
+            else:
+               ties = a_N.sum(
                 [a for a in a_N.actions if a.effective_bid == a_N[i].effective_bid])
             return range(higher, higher + ties)
         else:
@@ -135,8 +140,12 @@ class NoExternalityPositionAuction(posec.ProjectedMechanism):
         if self.pricing == "GFP":
             return a_N[i].bid
         elif self.pricing == "GSP":
-            nextbid = a_N.max(
-                [a for a in a_N.actions if a.effective_bid < a_N[i].effective_bid], lambda x: a.effective_bid)
+            if self.bad:
+                nextbids = [a_N[j].effective_bid for j in a_N.agents if a_N[j].effective_bid < a_N[i].effective_bid]
+                nextbid = max(nextbids) if len(nextbids) > 0 else None
+            else:
+                nextbid = a_N.max(
+                    [a for a in a_N.actions if a.effective_bid < a_N[i].effective_bid], lambda x: a.effective_bid)
             if nextbid is None:
                 return self.reservePPC(i, theta_i)
             else:
