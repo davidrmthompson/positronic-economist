@@ -705,7 +705,7 @@ def cputime():
     return cpu_info.ru_utime + cpu_info.ru_stime
 
 
-def _structureInference(setting, mechanism, agg, quiet=False, bbsi_level=0, metrics=None):
+def _structureInference(setting, mechanism, agg, quiet=False, bbsi_level=0, metrics=None, escape=False):
     if metrics is None:
         metrics = dict()
 
@@ -743,7 +743,17 @@ def _structureInference(setting, mechanism, agg, quiet=False, bbsi_level=0, metr
 
         if not quiet:
             logging.info("General BBSI:")
-        bbsi.compressByILS(agg)
+            logging.info("Removing edges that do not break strategic equivalence")
+        se_start = time.time()
+        se_cpu = cputime()
+        bbsi.compress_break_strategic_equivalence(agg)
+        metrics['BBSI-SE-size'] = agg.sizeAsAGG()
+        metrics['BBSI-SE-time'] = time.time() - se_start
+        metrics['BBSI-SE-CPU'] = cputime() - se_cpu
+        if not quiet:
+            logging.info("Post strategic equivalent removal size: %d", metrics['BBSI-SE-size'])
+            logging.info("SE time: %s, CPU: %s" % (metrics['BBSI-SE-time'], metrics['BBSI-SE-CPU']))
+        bbsi.compressByILS(agg, escape=escape)
         if not quiet:
             logging.info("Done.")
         metrics['BBSI-size'] = agg.sizeAsAGG()
@@ -755,7 +765,7 @@ def _structureInference(setting, mechanism, agg, quiet=False, bbsi_level=0, metr
     return agg
 
 
-def makeAGG(setting, mechanism, symmetry=False, transform=None, quiet=False, bbsi_level=0, metrics=None):
+def makeAGG(setting, mechanism, symmetry=False, transform=None, quiet=False, bbsi_level=0, metrics=None, escape=False):
     ''' Takes a Setting and a Mechanism, returns a corresponding pyagg.AGG object
 
 transform is a function (setting,i,theta_i,a_i,o,theta_N) that returns a real value
@@ -772,7 +782,7 @@ bbsi_level==2 means to do extensive BBSI (suitable for discovering coarse struct
 
     assert isinstance(setting, Setting)
     if isinstance(setting, BayesianSetting):
-        return _makeBAGG(setting, mechanism, symmetry, transform, quiet, bbsi_level, metrics)
+        return _makeBAGG(setting, mechanism, symmetry, transform, quiet, bbsi_level, metrics, escape)
 
     assert bbsi_level in [0, 1, 2]
     _N = range(setting.n)
@@ -812,12 +822,12 @@ bbsi_level==2 means to do extensive BBSI (suitable for discovering coarse struct
     agg = pyagg.AGG(_N, _A, _S, _F, _v, _f, _u)
     for a in _A:
         _u[a].agg = agg
-    return _structureInference(setting, mechanism, agg, quiet=quiet, bbsi_level=bbsi_level, metrics=metrics)
+    return _structureInference(setting, mechanism, agg, quiet=quiet, bbsi_level=bbsi_level, metrics=metrics, escape=escape)
 
 _PosEc_BAGG_type = namedtuple("_PosEc_BAGG_type", ("agent", "type"))
 
 
-def _makeBAGG(setting, mechanism, symmetry=False, transform=None, quiet=False, bbsi_level=1, metrics=None):
+def _makeBAGG(setting, mechanism, symmetry=False, transform=None, quiet=False, bbsi_level=1, metrics=None, escape=False):
     ''' Takes a BayesianSetting and a Mechanism, returns a corresponding pyagg.BAGG
 
 transform is a function (setting,i,theta_i,a_i,o,theta_N) that returns a real value
@@ -877,7 +887,7 @@ bbsi_level==2 means to do extensive BBSI (suitable for discovering coarse struct
     agg = pyagg.BAGG(_N, _Theta, _P, _A, _S, _F, _v, _f, _u)
     for a in _A:
         _u[a].agg = agg
-    return _structureInference(setting, mechanism, agg, quiet=quiet, bbsi_level=bbsi_level, metrics=metrics)
+    return _structureInference(setting, mechanism, agg, quiet=quiet, bbsi_level=bbsi_level, metrics=metrics, escape=escape)
 
 '''
     Things I'm currently missing:
@@ -934,6 +944,7 @@ Optionally, acts can cover a specific subset of action nodes.
             if len(fn.actions) == 1:
                 return prefix + "plays(%r,%r)" % (fn.agents, fn.actions[0])
         return fn
+
     if acts is None:
         acts = agg.A
     for a in acts:
