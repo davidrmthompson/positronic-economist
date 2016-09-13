@@ -2,6 +2,7 @@ import pyagg
 from pyagg import *
 import posec_core
 import math
+import sys
 import random
 
 # Preprocess step: convert all utility functions to utility mappings, and
@@ -33,6 +34,7 @@ def collapseTest(f, C, t):
 
 
 def testCut(agg, act, arcIndex):
+    """Returns true if removing an arc leaves the payoff table unchanged"""
     if not isinstance(arcIndex, int):
         arcIndex = findArcIndex(agg, act, arcIndex)
     ''' Returns a new utility mapping if the arc can be cut.
@@ -178,12 +180,34 @@ def makeMax(agg, act, existingMaxes, weights, functionName):
 SUM_LOG = []
 
 
-def compressByILS(agg, seed=None):
+def iterativeFirstImprovement(agg, act, minimumCuts=0):
+    # Keep cutting arcs as long as you are able
+    # minimum cuts is a budget for how many cuts do not have to be strictly improving
+    while True:
+        arcs = incoming_arcs(agg, act)
+        arcNumbers = range(len(arcs))
+        random.shuffle(arcNumbers)
+        success = False
+        for i in arcNumbers:
+            if tryCut(agg, act, i, minimumCuts <= 0):
+                success = True
+                minimumCuts -= 1
+                break
+        if not success:
+            return
+
+def compress_break_strategic_equivalence(agg):
+    # First, delete everything you can
+    for a in agg.A:
+        iterativeFirstImprovement(agg, a, sys.maxint)
+    pyagg.purgeBarren(agg)
+    agg._makeArcDict()
+    agg._makeEffectDict()
+
+def compressByILS(agg, escape=False, seed=None):
     if seed is not None:
         random.seed(seed)
     assert isinstance(agg, AGG)
-
-    preprocess(agg)
 
     def makeSnapshot(agg, act):
         inarcs = [arc for arc in agg.v if arc[1] == act]
@@ -198,26 +222,6 @@ def compressByILS(agg, seed=None):
         if isinstance(mapping, tuple):
             mapping = mapping[1]
         return len(mapping)
-        # config = mapping.keys()[0]
-        # inarcs = len(config)
-        # configs = len(mapping)
-        # return inarcs + configs
-
-    def iterativeFirstImprovement(agg, act, minimumCuts=0):
-        # Keep cutting arcs as long as you are able
-        # minimum cuts is a budget for how many cuts do not have to be strictly improving
-        while True:
-            arcs = [arc for arc in agg.v if arc[1] == act]
-            arcNumbers = range(len(arcs))
-            random.shuffle(arcNumbers)
-            success = False
-            for i in arcNumbers:
-                if tryCut(agg, act, i, minimumCuts <= 0):
-                    success = True
-                    minimumCuts -= 1
-                    break
-            if not success:
-                return
 
     def match(fn1, fn2):
         matches = 0
@@ -259,6 +263,7 @@ def compressByILS(agg, seed=None):
         return posec_core._PosEcAccessor("MAX", fn1.agents, fn1.types, tw, fn1.actions, aw, random.random())
 
     def randomIntWeight():
+        """Return a random integer weight, biased towards 1"""
         i = 1
         prContinue = 0.1
         while True:
@@ -288,7 +293,7 @@ def compressByILS(agg, seed=None):
             tryCutNode(agg, act, n1)
             tryCutNode(agg, act, n2)
             return True
-        else:
+        elif not escape:
             tryCutNode(agg, act, fn)
             return False
 
@@ -301,7 +306,7 @@ def compressByILS(agg, seed=None):
         if testCut(agg, act, n) is not None:
             tryCutNode(agg, act, n)
             return True
-        else:
+        elif not escape:
             tryCutNode(agg, act, fn)
             return False
 
@@ -324,11 +329,11 @@ def compressByILS(agg, seed=None):
         w = [random.expovariate(0.5), random.expovariate(0.5)]
         fn = merge(n1, n2)
         makeMax(agg, act, [n1, n2], w, fn)
-        if testCut(agg, act, n1) != None and testCut(agg, act, n1) != None:
+        if testCut(agg, act, n1) is not None and testCut(agg, act, n2) is not None:
             tryCutNode(agg, act, n1)
             tryCutNode(agg, act, n2)
             return True
-        else:
+        elif not escape:
             tryCutNode(agg, act, fn)
             return False
 
@@ -351,28 +356,35 @@ def compressByILS(agg, seed=None):
         fn = random.choice(moves)
         fn(agg, act)
 
-    s = 1
+
+    # Controls how many perturbations to run per iteration
+    s = 3 if escape else 1
+    # Restart probability
     restartP = 0.1
     for a in agg.A:
         original = makeSnapshot(agg, a)
         best = original
-        print a, cost(agg.u[a]),
-        iterativeFirstImprovement(agg, a, 999)
         c = cost(agg.u[a])
-        print cost(agg.u[a]),
-        c *= int(math.log(c,2))
+        print a, c,
+        if c == 1:
+            # Don't waste time
+            print c
+            continue
+        # Controls how much time to spend on each action node
+        c *= int(math.log(c, 2))
+
         for _ in range(c):
             for __ in range(s):
                 perturb(agg, a)
-            iterativeFirstImprovement(agg, a, 999)
+            iterativeFirstImprovement(agg, a, 0 if escape else sys.maxint)
             if cost(agg.u[a]) < cost(best):
                 best = makeSnapshot(agg, a)
 
             if random.random() < restartP:
                 restoreSnapshot(agg, a, original)
-            # posec.explain(agg,[a])
+
         restoreSnapshot(agg, a, best)
-        iterativeFirstImprovement(agg, a, cost(agg.u[a]))
+        iterativeFirstImprovement(agg, a, sys.maxint)
         print cost(agg.u[a])
         pyagg.purgeBarren(agg)
     agg._makeArcDict()
@@ -381,15 +393,11 @@ def compressByILS(agg, seed=None):
 def incoming_arcs(agg, node):
     return [arc for arc in agg.v if arc[1] == node]
 
-
 def incoming_nodes(agg, node):
     return [arc[0] for arc in incoming_arcs(agg, node)]
 
-
 def anonymityCuts(agg):
-    preprocess(agg)
     for act in agg.A:
-        # print act
         while True:
             arcsToAct = incoming_arcs(agg, act)
             madeCut = False
