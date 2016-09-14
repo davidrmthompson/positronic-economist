@@ -118,19 +118,22 @@ def gsp(n, seed=None):
     m = position_auctions.NoExternalityPositionAuction(pricing="GSP", squashing=1.0)
     return setting, m
 
-def bbsi_check(n_players, seed, fn, bbsi_level, escape):
+def bbsi_check(n_players, seed, fn, bbsi_level):
     name = "%s_%d_%d" % (fn.__name__, n_players, seed)
     print name
     setting, m = fn(n_players, seed=seed)
     metrics = dict(n_players=n_players, seed=seed, game=fn.__name__, bbsi_level=bbsi_level)
     symmetry = True if fn == two_approval else False
     print "Symmetry", symmetry
-    agg = makeAGG(setting, m, bbsi_level=bbsi_level, metrics=metrics, symmetry=symmetry, escape=escape)
-    # explain(agg)
     bagg_filedir = "baggs/%s" % fn.__name__.upper()
     if not os.path.exists(bagg_filedir):
         os.makedirs(bagg_filedir)
-    agg.saveToFile("%s/%s.bagg" % (bagg_filedir, name))
+    metrics['dir'] = bagg_filedir
+    metrics['name'] = name
+
+    agg = makeAGG(setting, m, bbsi_level=bbsi_level, metrics=metrics, symmetry=symmetry)
+    # explain(agg)
+    agg.saveToFile("%s/%s_FINAL.bagg" % (bagg_filedir, name))
     return metrics
 
 def test():
@@ -138,7 +141,7 @@ def test():
     logging.getLogger().addHandler(logging.StreamHandler())
     for game in [gfp]:
         print "GAME:", game.__name__.upper()
-        bbsi_check(3,1,bad_two_approval,1,True)
+        bbsi_check(3,1,bad_two_approval,1)
 
 
 if __name__ == '__main__':
@@ -176,7 +179,7 @@ if __name__ == '__main__':
             }
             job['fn'] = g2f[job['game']]
             logging.info("Running job %s" % job)
-            metrics = bbsi_check(job['n'], job['seed'], job['fn'], job['bbsi_level'], job['escape'])
+            metrics = bbsi_check(job['n'], job['seed'], job['fn'], job['bbsi_level'])
             with open(args.file, "a") as output:
                 output.write(json.dumps(metrics)+'\n')
             r.lrem(q + '_PROCESSING', 1, instance)
