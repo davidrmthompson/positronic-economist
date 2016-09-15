@@ -137,7 +137,10 @@ def bbsi_check(n_players, seed, fn, bbsi_level):
     return metrics
 
 
-def IBR(setting, m, seed=None, output=None, stop_cycle=True):
+def IBR(setting, m, seed=None, output=None, stop_cycle=True,cutoff=3600):
+
+    start = cputime()
+
     if seed is not None:
         random.seed(seed)
 
@@ -177,6 +180,11 @@ def IBR(setting, m, seed=None, output=None, stop_cycle=True):
             seen.add(tuple(strategies[k] for k in range(setting.n)))
 
         while maxRegret != 0:
+            if cputime() - start > cutoff:
+                print "OUT OF TIME"
+                break
+
+
             maxRegrets = []
             player_to_action_to_regret = {}
             for i in range(setting.n):
@@ -218,7 +226,8 @@ def IBR(setting, m, seed=None, output=None, stop_cycle=True):
                 else:
                     seen.add(identifier)
 
-        print "Converged to equilibrium! Yay!"
+        if maxRegret == 0:
+            print "Converged to equilibrium! Yay!"
 
 
 def test():
@@ -272,7 +281,7 @@ if __name__ == '__main__':
             if args.ibr:
                 fn = g2f[job['game']]
                 setting, m = fn(job['n'], job['seed'])
-                IBR(setting, m, seed=job['seed'], output=job['output'])
+                IBR(setting, m, seed=job['ibr_seed'], output=job['output'], cutoff=job['cutoff'])
             else:
                 g2f = {
                     'GFP': gfp,
