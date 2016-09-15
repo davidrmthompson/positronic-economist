@@ -151,7 +151,7 @@ def IBR(setting, m, seed=None, output=None, stop_cycle=True,cutoff=3600):
 
     with open(file, 'a') as f:
 
-        f.write('max_regret,cputime')
+        f.write('max_regret,cputime'+'\n')
 
         # Introduce dumb class so we can add attributes to dicts
         class MyDict(dict):
