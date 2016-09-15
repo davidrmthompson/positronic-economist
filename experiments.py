@@ -63,7 +63,7 @@ def two_approval_setting(n):
 
 
 def two_approval_A(setting, i, theta_i):
-    return itertools.combinations(setting.O, r=2)
+    return list(itertools.combinations(setting.O, r=2))
 
 def two_approval(n, seed=None):
     random.seed(seed)
@@ -190,7 +190,11 @@ def IBR(setting, m, seed=None, output=None, stop_cycle=True,cutoff=3600):
             maxRegrets = []
             player_to_action_to_regret = {}
             for i in range(setting.n):
-                po = m.M(setting, i, setting.Theta[i], strategies)
+
+                if isinstance(m, ProjectedMechanism):
+                    po = m.M(setting, i, setting.Theta[i], strategies)
+                else:
+                    po = m.M(setting, strategies)
                 u = sum([setting.u(i, setting.Theta, o, strategies[i]) * p for o, p in po])
 
                 player_to_action_to_regret[i] = MyDict()
@@ -203,7 +207,12 @@ def IBR(setting, m, seed=None, output=None, stop_cycle=True,cutoff=3600):
 
                 for possible_action in actions[i]:
                     strategies_tmp[i] = possible_action
-                    po = m.M(setting, i, setting.Theta[i], strategies_tmp)
+
+                    if isinstance(m, ProjectedMechanism):
+                        po = m.M(setting, i, setting.Theta[i], strategies_tmp)
+                    else:
+                        po = m.M(setting, strategies_tmp)
+
                     other_u = sum([setting.u(i, setting.Theta, o, strategies_tmp[i]) * p for o, p in po])
                     player_to_action_to_regret[i][possible_action] = other_u - u
 
@@ -236,8 +245,8 @@ def test():
     logging.basicConfig(format='%(asctime)-15s [%(levelname)s] %(message)s', level=logging.INFO, filename='posec.log')
     logging.getLogger().addHandler(logging.StreamHandler())
 
-    setting, m = bad_gfp(10,1)
-    IBR(setting, m, seed=10, output="ibr.txt")
+    setting, m = bad_two_approval(10,1)
+    IBR(setting, m, seed=1, output="ibr.txt")
 
 
 
