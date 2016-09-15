@@ -358,7 +358,7 @@ def compressByILS(agg, escape=False, seed=None):
 
 
     # Controls how many perturbations to run per iteration
-    s = 3 if escape else 1
+    s = 5 if escape else 1
     # Restart probability
     restartP = 0.1
     for a in agg.A:
