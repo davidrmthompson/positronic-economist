@@ -151,6 +151,8 @@ def IBR(setting, m, seed=None, output=None, stop_cycle=True,cutoff=3600):
 
     with open(file, 'a') as f:
 
+        f.write('max_regret,cputime')
+
         # Introduce dumb class so we can add attributes to dicts
         class MyDict(dict):
             pass
@@ -211,7 +213,7 @@ def IBR(setting, m, seed=None, output=None, stop_cycle=True,cutoff=3600):
 
 
             logging.info( "Max regret overall is %s" % (maxRegret))
-            f.write(str(maxRegret)+'\n')
+            f.write(str(maxRegret)+','+str(cputime()-start)+'\n')
 
             # Everyone does their best response
             for i in range(setting.n):
@@ -254,7 +256,7 @@ if __name__ == '__main__':
     parser.add_argument('--ibr', type=bool, help="Do IBR, not posec", default=False)
     args = parser.parse_args()
 
-    if not (args.qname and args.host and args.port and args.file):
+    if not (args.qname and args.host and args.port):
         test()
     else:
         r = redis.StrictRedis(host=args.host, port=args.port)
