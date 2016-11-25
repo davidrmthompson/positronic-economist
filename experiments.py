@@ -160,7 +160,6 @@ if __name__ == '__main__':
     parser.add_argument('--file', type=str, help="output file")
     parser.add_argument('--logfile', type=str, help="log file", default="posec.log")
     parser.add_argument('--ibr', type=bool, help="Do IBR, not posec", default=False)
-    parser.add_argument('--fp_agg', type=str, help="Path to AGG file to run FP on", default=False)
     args = parser.parse_args()
 
     if not (args.qname and args.host and args.port):
@@ -179,20 +178,8 @@ if __name__ == '__main__':
             if instance is None:
                 break
             job = json.loads(instance)
-            g2f = {
-                'GFP': gfp,
-                'GFP_bad': bad_gfp,
-                'GSP': gsp,
-                'GSP_bad': bad_gsp,
-                'vote': two_approval,
-                'vote_bad': bad_two_approval
-            }
-            if args.ibr:
-                fn = g2f[job['game']]
-                setting, m = fn(job['n'], job['seed'])
-                IBR(setting, m, seed=job['ibr_seed'], output=job['output'], cutoff=job['cutoff'])
-            elif args.fp_agg:
-                FP(args.fp_agg, seed=job['ibr_seed'], output=job['output'], cutoff=job['cutoff'])
+            if 'fp_agg' in job:
+                FP(job['fp_agg_'], seed=job['ibr_seed'], output=job['output'], cutoff=job['cutoff'])
             else:
                 g2f = {
                     'GFP': gfp,
@@ -202,10 +189,23 @@ if __name__ == '__main__':
                     'vote': two_approval,
                     'vote_bad': bad_two_approval
                 }
-                job['fn'] = g2f[job['game']]
-                logging.info("Running job %s" % job)
-                metrics = bbsi_check(job['n'], job['seed'], job['fn'], job['bbsi_level'])
-                with open(args.file, "a") as output:
-                    output.write(json.dumps(metrics)+'\n')
+                if args.ibr:
+                    fn = g2f[job['game']]
+                    setting, m = fn(job['n'], job['seed'])
+                    IBR(setting, m, seed=job['ibr_seed'], output=job['output'], cutoff=job['cutoff'])
+                else:
+                    g2f = {
+                        'GFP': gfp,
+                        'GFP_bad': bad_gfp,
+                        'GSP': gsp,
+                        'GSP_bad': bad_gsp,
+                        'vote': two_approval,
+                        'vote_bad': bad_two_approval
+                    }
+                    job['fn'] = g2f[job['game']]
+                    logging.info("Running job %s" % job)
+                    metrics = bbsi_check(job['n'], job['seed'], job['fn'], job['bbsi_level'])
+                    with open(args.file, "a") as output:
+                        output.write(json.dumps(metrics)+'\n')
             r.lrem(q + '_PROCESSING', 1, instance)
         print "ALL DONE!"
