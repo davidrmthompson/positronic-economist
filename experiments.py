@@ -13,6 +13,8 @@ import redis
 import os
 from posec.ibr import IBR
 from posec.fp import FP
+from pyagg import AGG_File
+
 
 N_POSITIONS = 4
 N_BIDS = 20
@@ -177,7 +179,7 @@ if __name__ == '__main__':
                 break
             job = json.loads(instance)
             if 'fp_agg' in job:
-                FP(job['fp_agg'], seed=job['ibr_seed'], output=job['output'], cutoff=job['cutoff'])
+                FP(AGG_File(job['fp_agg']), seed=job['ibr_seed'], output=job['output'], cutoff=job['cutoff'])
             else:
                 g2f = {
                     'GFP': gfp,
