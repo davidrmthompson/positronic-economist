@@ -95,7 +95,6 @@ def FP(agg, seed=None, output=None, truthful_init=True, initial_strategies=None,
             # if sum(updates) != len(agg.N):
             #     logger.warn("Updates sum to %.2f but only %d players..." % (sum(updates), len(agg.N)))
             #     raise
-            print updates
             # Regret calculations
             max_regret = agg.max_regret(strategy_string(updates))
             f.write(str(max_regret)+','+str(cputime()-start)+'\n')

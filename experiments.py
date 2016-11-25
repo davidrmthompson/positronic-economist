@@ -177,7 +177,7 @@ if __name__ == '__main__':
                 break
             job = json.loads(instance)
             if 'fp_agg' in job:
-                FP(job['fp_agg_'], seed=job['ibr_seed'], output=job['output'], cutoff=job['cutoff'])
+                FP(job['fp_agg'], seed=job['ibr_seed'], output=job['output'], cutoff=job['cutoff'])
             else:
                 g2f = {
                     'GFP': gfp,
