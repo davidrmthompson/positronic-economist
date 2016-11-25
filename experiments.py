@@ -13,7 +13,7 @@ import redis
 import os
 from posec.ibr import IBR
 from posec.fp import FP
-from pyagg import AGG_File
+from posec.pyagg import AGG_File
 
 
 N_POSITIONS = 4
