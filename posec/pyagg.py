@@ -6,7 +6,7 @@ import string
 # Configuration options
 # FIXME: this shouldn't be called solvers, but rather binaries, b/c I use
 # getpayoffs and bgetpayoffs.  Also, it should probably live elsewhere.
-AGG_SOLVER_PATH = ""
+AGG_SOLVER_PATH = "./AGGSolver/"
 
 
 def _delta(n, k):
@@ -84,7 +84,7 @@ class AGG_File:
     def _popen(self):
         if self.tochild == None or self.fromchild == None:
             (self.tochild, self.fromchild) = os.popen2(
-                AGG_SOLVER_PATH + "getpayoffs " + self.filename)
+                os.path.join(AGG_SOLVER_PATH, "libagg/getpayoffs") + " " + self.filename)
 
     def parse(self, strategyString):
         strategyString = self.fixStrategy(strategyString)
@@ -104,10 +104,13 @@ class AGG_File:
         for i in self.N:
             aSize = len(self.S[i])
             strat = sp[:aSize]
-            if set(strat) != set(["0", "1"]):
-                output.append("MIXED")
+            sp = sp[aSize:]
+            if set(strat) != {"0", "1"}:
+                mixed_output = []
+                for q,p in enumerate(strat):
+                    mixed_output.append((p, self.S[i][q]))
+                output.append(mixed_output)
             else:
-                sp = sp[aSize:]
                 action = strat.index("1")
                 output.append(self.S[i][action])
         return output
@@ -159,6 +162,29 @@ class AGG_File:
                     return rc
             LL2[i] = LL[i]
         return rc
+
+    def regret(self, strategyString, asLL=False):
+        '''Return the regret of each action'''
+        strategyString = self.fixStrategy(strategyString)
+        eu = self.test(strategyString)
+        LL = fromLtoLL(map(float, string.split(strategyString)), self.aSizes)
+        LL2 = fromLtoLL(map(float, string.split(strategyString)), self.aSizes)
+        regrets = []
+        for i in range(len(self.aSizes)):
+            nA = len(LL[i])
+            for a in range(nA):
+                LL2[i] = _delta(nA, a)
+                payoff = self.test(fromLLtoString(LL2))[i]
+                regret = payoff - eu[i]
+                regrets.append(regret)
+            LL2[i] = LL[i]
+        return fromLtoLL(regrets, self.aSizes) if asLL else regrets
+
+    def max_regret(self, strategyString):
+        return max(self.regret(strategyString))
+
+    def player_max_regrets(self, strategyString):
+        return map(max, self.regret(strategyString, asLL=True))
 
     def __del__(self):
         try:
@@ -271,9 +297,9 @@ class BAGG_File(AGG_File):
         return output
 
     def _popen(self):
-        if self.tochild == None or self.fromchild == None:
+        if self.tochild is None or self.fromchild is None:
             (self.tochild, self.fromchild) = os.popen2(
-                AGG_SOLVER_PATH + "bgetpayoffs " + self.filename)
+                os.path.join(AGG_SOLVER_PATH, "bgetpayoffs") + " " + self.filename)
 
 
 class AGG(AGG_File):

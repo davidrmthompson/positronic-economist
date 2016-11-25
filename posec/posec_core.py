@@ -721,7 +721,8 @@ def _structureInference(setting, mechanism, agg, quiet=False, bbsi_level=0, metr
         logging.info("BNFG size: %s" % metrics['BNFG-size'])
         logging.info("Post-WBSI size: %s" % metrics['Post-WBSI size'])
 
-    agg.saveToFile("%s/%s_WBSI.bagg" % (metrics['dir'], metrics['name']))
+    if 'dir' in metrics and 'name' in metrics:
+        agg.saveToFile("%s/%s_WBSI.bagg" % (metrics['dir'], metrics['name']))
 
     if bbsi_level > 0:
         start = time.time()

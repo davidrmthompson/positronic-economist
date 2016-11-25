@@ -11,6 +11,8 @@ import argparse
 import json
 import redis
 import os
+from posec.ibr import IBR
+from posec.fp import FP
 
 N_POSITIONS = 4
 N_BIDS = 20
@@ -137,116 +139,11 @@ def bbsi_check(n_players, seed, fn, bbsi_level):
     return metrics
 
 
-def IBR(setting, m, seed=None, output=None, stop_cycle=True,cutoff=3600):
-
-    start = cputime()
-
-    if seed is not None:
-        random.seed(seed)
-
-    if output is None:
-        file = os.devnull
-    else:
-        file = output
-
-    with open(file, 'a') as f:
-
-        f.write('max_regret,cputime'+'\n')
-
-        # Introduce dumb class so we can add attributes to dicts
-        class MyDict(dict):
-            pass
-
-        actions = {}
-
-        for i in range(setting.n):
-            actions[i] = m.A(setting, i, setting.Theta[i])
-            # Random starting strategy
-
-
-        def make_random_strategies():
-            s = MyDict()
-            for i in range(setting.n):
-                s.agents = range(setting.n)
-                s[i] = random.choice(actions[i])
-            return s
-
-
-        strategies = make_random_strategies()
-
-        # Calculate regret and best responses
-        maxRegret = sys.maxint
-
-        if stop_cycle:
-            seen = set()
-            seen.add(tuple(strategies[k] for k in range(setting.n)))
-
-        while maxRegret != 0:
-            if cputime() - start > cutoff:
-                print "OUT OF TIME"
-                break
-
-
-            maxRegrets = []
-            player_to_action_to_regret = {}
-            for i in range(setting.n):
-
-                if isinstance(m, ProjectedMechanism):
-                    po = m.M(setting, i, setting.Theta[i], strategies)
-                else:
-                    po = m.M(setting, strategies)
-                u = sum([setting.u(i, setting.Theta, o, strategies[i]) * p for o, p in po])
-
-                player_to_action_to_regret[i] = MyDict()
-                player_to_action_to_regret[i].agents = range(setting.n)
-
-                strategies_tmp = MyDict()
-                strategies_tmp.agents = range(setting.n)
-                for j in range(setting.n):
-                    strategies_tmp[j] = strategies[j]
-
-                for possible_action in actions[i]:
-                    strategies_tmp[i] = possible_action
-
-                    if isinstance(m, ProjectedMechanism):
-                        po = m.M(setting, i, setting.Theta[i], strategies_tmp)
-                    else:
-                        po = m.M(setting, strategies_tmp)
-
-                    other_u = sum([setting.u(i, setting.Theta, o, strategies_tmp[i]) * p for o, p in po])
-                    player_to_action_to_regret[i][possible_action] = other_u - u
-
-                maxRegrets.append(max(player_to_action_to_regret[i].values()))
-                # logging.info("Max regret for player %d is %s" % (i, maxRegrets[i]))
-                maxRegret = max(maxRegrets)
-
-
-            logging.info( "Max regret overall is %s" % (maxRegret))
-            f.write(str(maxRegret)+','+str(cputime()-start)+'\n')
-
-            # Everyone does their best response
-            for i in range(setting.n):
-                strategies[i] = max(player_to_action_to_regret[i].iteritems(), key=lambda item: item[1])[0]
-
-            # Check for loops
-            if stop_cycle:
-                identifier = tuple(strategies[k] for k in range(setting.n))
-                if identifier in seen:
-                    print "LOOP DETECTED"
-                    strategies = make_random_strategies()
-                else:
-                    seen.add(identifier)
-
-        if maxRegret == 0:
-            print "Converged to equilibrium! Yay!"
-
-
 def test():
-    logging.basicConfig(format='%(asctime)-15s [%(levelname)s] %(message)s', level=logging.INFO, filename='posec.log')
-    logging.getLogger().addHandler(logging.StreamHandler())
+    pass
 
-    setting, m = bad_two_approval(10,1)
-    IBR(setting, m, seed=1, output="ibr.txt")
+    # setting, m = bad_two_approval(10,1)
+    # IBR(setting, m, seed=1, output="ibr.txt")
 
 
 
@@ -263,6 +160,7 @@ if __name__ == '__main__':
     parser.add_argument('--file', type=str, help="output file")
     parser.add_argument('--logfile', type=str, help="log file", default="posec.log")
     parser.add_argument('--ibr', type=bool, help="Do IBR, not posec", default=False)
+    parser.add_argument('--fp_agg', type=str, help="Path to AGG file to run FP on", default=False)
     args = parser.parse_args()
 
     if not (args.qname and args.host and args.port):
@@ -293,6 +191,8 @@ if __name__ == '__main__':
                 fn = g2f[job['game']]
                 setting, m = fn(job['n'], job['seed'])
                 IBR(setting, m, seed=job['ibr_seed'], output=job['output'], cutoff=job['cutoff'])
+            elif args.fp_agg:
+                FP(args.fp_agg, seed=job['ibr_seed'], output=job['output'], cutoff=job['cutoff'])
             else:
                 g2f = {
                     'GFP': gfp,
