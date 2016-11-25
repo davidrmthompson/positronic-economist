@@ -4,7 +4,7 @@ from collections import OrderedDict
 
 import numpy as np
 
-from experiments import cputime
+from posec_core import cputime
 
 logger = logging.getLogger(__name__)
 

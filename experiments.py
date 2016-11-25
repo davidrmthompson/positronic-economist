@@ -140,10 +140,8 @@ def bbsi_check(n_players, seed, fn, bbsi_level):
 
 
 def test():
-    pass
-
-    # setting, m = bad_two_approval(10,1)
-    # IBR(setting, m, seed=1, output="ibr.txt")
+    setting, m = bad_two_approval(10,1)
+    IBR(setting, m, seed=1, output="ibr.txt")
 
 
 

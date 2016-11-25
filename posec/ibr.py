@@ -1,8 +1,7 @@
-from experiments import cputime
 import random
 import os
 import logging
-from posec_core import ProjectedMechanism
+from posec_core import ProjectedMechanism, cputime
 import sys
 
 logger = logging.getLogger(__name__)
