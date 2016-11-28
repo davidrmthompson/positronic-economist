@@ -6,7 +6,7 @@ import string
 # Configuration options
 # FIXME: this shouldn't be called solvers, but rather binaries, b/c I use
 # getpayoffs and bgetpayoffs.  Also, it should probably live elsewhere.
-AGG_SOLVER_PATH = "./AGGSolver/"
+AGG_SOLVER_PATH = os.environ.get('AGGSOLVER', "./AGGSolver/")
 
 
 def _delta(n, k):
@@ -132,6 +132,9 @@ class AGG_File:
         return string.join(strat2)
 
     def test(self, strategyString):
+        if isinstance(strategyString, list):
+            strategyString = fromLLtoString(strategyString)
+
         ''' Returns a n-length vector of the agents' payoffs '''
         self._popen()
         strategyString = self.fixStrategy(strategyString)
@@ -144,6 +147,9 @@ class AGG_File:
         return output
 
     def isNE(self, strategyString):
+        if isinstance(strategyString, list):
+            strategyString = fromLLtoString(strategyString)
+
         ''' Tests whether or not a given strategy profile is a (Bayes) Nash equilibrium '''
         strategyString = self.fixStrategy(strategyString)
         rc = True
@@ -164,6 +170,9 @@ class AGG_File:
         return rc
 
     def regret(self, strategyString, asLL=False):
+        if isinstance(strategyString, list):
+            strategyString = fromLLtoString(strategyString)
+
         '''Return the regret of each action'''
         strategyString = self.fixStrategy(strategyString)
         eu = self.test(strategyString)
@@ -868,10 +877,10 @@ class _GNM(_Solver):
     # the others
 
     def solve(self, agg, timeLimit=None, **options):
-        assert agg.filename != None
+        assert agg.filename is not None
         command = self.cmd.format(
             filename=agg.filename, **dict(options.items() + self.defaults.items()))
-        if timeLimit != None:
+        if timeLimit is not None:
             command = "timerun " + str(timeLimit) + " " + command
         lastLine = None
         for line in os.popen(command, 'r').xreadlines():
@@ -880,7 +889,7 @@ class _GNM(_Solver):
             lastLine = line
 
 sem = _Solver("sem_agg -uran-2 <{filename}")
-gnm = _GNM("gnm_agg -f {filename} {seed} {runs}", {"seed": 1, "runs": 1})
+gnm = _GNM(os.path.join(AGG_SOLVER_PATH, "gnm_agg") + " -f {filename} {seed} {runs}", {"seed": 1, "runs": 1})
 simpdiv = _Solver(
     "makeStart {filename} {filename}.start {seed};simpdiv -s {filename}.start <{filename}", {"seed": 1})
 

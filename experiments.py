@@ -11,14 +11,12 @@ import argparse
 import json
 import redis
 import os
-from posec.ibr import IBR
-from posec.fp import FP
+from posec.ibr2 import IBR
+from posec.fp2 import FP
 from posec.pyagg import AGG_File
-
 
 N_POSITIONS = 4
 N_BIDS = 20
-
 
 # def two_approval(n, m_candidates=5, num_types=6):
 #     # Outcomes - the candiate that gets elected
@@ -51,7 +49,8 @@ N_BIDS = 20
 #     return agg.sizeAsAGG(), agg.sizeAsAGG(), t1-t0
     # agg.saveToFile("paper_examples_voting.bagg")
 
-def two_approval_setting(n):
+def two_approval_setting(n, seed=None):
+    random.seed(seed)
     m_candidates = 5
     # Outcomes - the candiate that gets elected
     O = tuple("c" + str(i + 1) for i in range(m_candidates))
@@ -64,7 +63,6 @@ def two_approval_setting(n):
         return theta[i].index(o)
 
     return Setting(n, O, Theta, u)
-
 
 def two_approval_A(setting, i, theta_i):
     return list(itertools.combinations(setting.O, r=2))
@@ -146,12 +144,6 @@ def test():
     IBR(setting, m, seed=1, output="ibr.txt")
 
 
-
-    # for game in [gfp]:
-    #     print "GAME:", game.__name__.upper()
-    #     bbsi_check(3,1,bad_two_approval,1)
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--qname', type=str, help="redis queue")
@@ -159,7 +151,6 @@ if __name__ == '__main__':
     parser.add_argument('--port', type=int, help="redis port")
     parser.add_argument('--file', type=str, help="output file")
     parser.add_argument('--logfile', type=str, help="log file", default="posec.log")
-    parser.add_argument('--ibr', type=bool, help="Do IBR, not posec", default=False)
     args = parser.parse_args()
 
     if not (args.qname and args.host and args.port):
@@ -178,8 +169,13 @@ if __name__ == '__main__':
             if instance is None:
                 break
             job = json.loads(instance)
-            if 'fp_agg' in job:
-                FP(AGG_File(job['fp_agg']), seed=job['ibr_seed'], output=job['output'], cutoff=job['cutoff'])
+            if 'agg_file' in job:
+                alg2f = {
+                    'IBR': IBR,
+                    'FP': FP
+                }
+                # TODO: add GNM
+                alg2f[job['alg']](AGG_File(job['agg_file']), seed=job['alg_seed'], output=job['output'], cutoff=job['cutoff'])
             else:
                 g2f = {
                     'GFP': gfp,
@@ -189,23 +185,10 @@ if __name__ == '__main__':
                     'vote': two_approval,
                     'vote_bad': bad_two_approval
                 }
-                if args.ibr:
-                    fn = g2f[job['game']]
-                    setting, m = fn(job['n'], job['seed'])
-                    IBR(setting, m, seed=job['ibr_seed'], output=job['output'], cutoff=job['cutoff'])
-                else:
-                    g2f = {
-                        'GFP': gfp,
-                        'GFP_bad': bad_gfp,
-                        'GSP': gsp,
-                        'GSP_bad': bad_gsp,
-                        'vote': two_approval,
-                        'vote_bad': bad_two_approval
-                    }
-                    job['fn'] = g2f[job['game']]
-                    logging.info("Running job %s" % job)
-                    metrics = bbsi_check(job['n'], job['seed'], job['fn'], job['bbsi_level'])
-                    with open(args.file, "a") as output:
-                        output.write(json.dumps(metrics)+'\n')
+                job['fn'] = g2f[job['game']]
+                logging.info("Running job %s" % job)
+                metrics = bbsi_check(job['n'], job['seed'], job['fn'], job['bbsi_level'])
+                with open(args.file, "a") as output:
+                    output.write(json.dumps(metrics)+'\n')
             r.lrem(q + '_PROCESSING', 1, instance)
         print "ALL DONE!"
