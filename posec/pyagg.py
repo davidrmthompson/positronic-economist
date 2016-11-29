@@ -2,6 +2,7 @@
 import os
 import re
 import string
+import sys
 
 # Configuration options
 # FIXME: this shouldn't be called solvers, but rather binaries, b/c I use
@@ -64,15 +65,24 @@ class AGG_File:
         self.N = self._getObjectNames("Agent", n)
         self.A = self._getObjectNames("Node", m)
 
+    def __find_max_payoff(self, body):
+        '''Identify largest payoff in the game'''
+        max_payoff = -sys.maxint
+        for line in body.split('\n'):
+            if line.strip().startswith('['):
+                payoff = float(line[line.index(']') + 1:])
+                max_payoff = max(payoff, max_payoff)
+        self.max_payoff = max_payoff
+
     def _loadDetails(self):
         body = re.sub("#.*?\n", "", self.data)
         values = string.split(body)
         n = int(values[0])
         m = int(values[1])
+        self.__find_max_payoff(body)
         self.__getNames(n, m)
         aSizes = map(int, values[3:n + 3])
         index = n + 3
-        actionIndexSets = []
         self.S = {}
         for i in range(n):
             agent = self.N[i]
@@ -82,9 +92,8 @@ class AGG_File:
         self.aSizes = aSizes
 
     def _popen(self):
-        if self.tochild == None or self.fromchild == None:
-            (self.tochild, self.fromchild) = os.popen2(
-                os.path.join(AGG_SOLVER_PATH, "libagg/getpayoffs") + " " + self.filename)
+        if self.tochild is None or self.fromchild is None:
+            (self.tochild, self.fromchild) = os.popen2(os.path.join(AGG_SOLVER_PATH, "libagg/getpayoffs") + " " + self.filename)
 
     def parse(self, strategyString):
         strategyString = self.fixStrategy(strategyString)
@@ -142,8 +151,7 @@ class AGG_File:
         self.tochild.write(strategyString + "\n")
         self.tochild.flush()
         self.fromchild.readline()
-        output = map(float, string.split(
-            string.strip(self.fromchild.readline())))
+        output = map(float, string.split(string.strip(self.fromchild.readline())))
         return output
 
     def isNE(self, strategyString):
@@ -857,9 +865,9 @@ def fromLLtoString(LL, actionDelim=" ", agentDelim="\t"):
 
 class _Solver:
 
-    def __init__(self, cmd, defaults={}):
+    def __init__(self, cmd, defaults=None):
         self.cmd = cmd
-        self.defaults = defaults
+        self.defaults = {} if defaults is None else defaults
 
     def solve(self, agg, timeLimit=None, **options):
         assert agg.filename != None

@@ -4,9 +4,9 @@ import random
 
 import numpy as np
 
-from posec_core import cputime
-from pyagg import fromLLtoString, AGG_File
 from ibr2 import random_idx_max
+from pyagg import AGG_File
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -25,22 +25,27 @@ def normalize_model(model):
     return map(normalize, model)
 
 def FP(agg, seed=None, output=None, cutoff=3600):
-    start = cputime()
+    start = time.time()
 
     random.seed(seed)
 
     file = output if output is not None else os.devnull
 
-    with open(file, 'a') as f:
-        f.write('max_regret,cputime' + '\n')
+    with open(file, 'w') as f:
+        f.write('max_regret,weighted_max_regret,cputime\n')
+
+        def log_strategy(s):
+            max_regret = agg.max_regret(s)
+            elapsed = time.time()-start
+            weighted_max_regret = max_regret / agg.max_payoff
+            f.write(','.join((str(max_regret), str(max_regret/agg.max_payoff), str(elapsed)))+'\n')
+            logger.info("Weighted max regret overall is %s. Time elapsed %.2f" % (weighted_max_regret, elapsed))
 
         model = uniform_mixed_strategy(agg)
         strategy = model
         iteration = 0
-        while not agg.isNE(strategy) and cputime() - start < cutoff:
-            max_regret = agg.max_regret(strategy)
-            f.write(str(max_regret) + ',' + str(cputime() - start) + '\n')
-            logger.info("Max regret overall is %s" % (max_regret))
+        while not agg.isNE(strategy) and time.time() - start < cutoff:
+            log_strategy(strategy)
 
             # Get everyone's current regret given the model's count frequencies as empirical mixed strategy
             regrets = agg.regret(strategy, asLL=True)
@@ -54,10 +59,11 @@ def FP(agg, seed=None, output=None, cutoff=3600):
 
             iteration += 1
 
+        log_strategy(strategy)
         # Either cutoff or NE
         if agg.isNE(strategy):
-            logger.info("NE FOUND at iteration %d" % iteration)
-            logger.info(agg.interpretProfile(fromLLtoString(strategy)))
+            logger.info("NE FOUND at iteration %d after %.2f" % (iteration, time.time() - start))
+            logger.info(strategy)
         else:
             logger.info("Cutoff reached")
 

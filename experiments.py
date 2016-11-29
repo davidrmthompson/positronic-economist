@@ -13,7 +13,7 @@ import redis
 import os
 from posec.ibr2 import IBR
 from posec.fp2 import FP
-from posec.pyagg import AGG_File
+from posec.pyagg import AGG_File, gnm
 
 N_POSITIONS = 4
 N_BIDS = 20
@@ -140,9 +140,17 @@ def bbsi_check(n_players, seed, fn, bbsi_level):
 
 
 def test():
-    setting, m = bad_two_approval(10,1)
-    IBR(setting, m, seed=1, output="ibr.txt")
+    path = '/ubc/cs/research/arrow/newmanne/positronic-economist/baggs/GSP/'
+    agg = AGG_File(path + 'gsp_2_1_1_FINAL.bagg')
+    GNM(agg)
 
+def GNM(agg, seed=None, output=None, cutoff=3600):
+    file = output if output is not None else os.devnull
+    with open(file, 'a') as f:
+        extra_args = {}
+        if seed is not None:
+            extra_args['seed'] = seed
+        gnm.solve(agg, **extra_args)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -172,7 +180,8 @@ if __name__ == '__main__':
             if 'agg_file' in job:
                 alg2f = {
                     'IBR': IBR,
-                    'FP': FP
+                    'FP': FP,
+                    'GNM': GNM
                 }
                 # TODO: add GNM
                 alg2f[job['alg']](AGG_File(job['agg_file']), seed=job['alg_seed'], output=job['output'], cutoff=job['cutoff'])

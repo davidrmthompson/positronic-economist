@@ -701,9 +701,9 @@ def _hashable(o):
         return False
 
 def cputime():
+    # WARNING: this won't track calls to C library when using AGGLib
     cpu_info = resource.getrusage(resource.RLIMIT_CPU)
     return cpu_info.ru_utime + cpu_info.ru_stime
-
 
 def _structureInference(setting, mechanism, agg, quiet=False, bbsi_level=0, metrics=None):
     if metrics is None:
