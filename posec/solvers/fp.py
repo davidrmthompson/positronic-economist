@@ -2,30 +2,29 @@ import logging
 import os
 import random
 
+import numpy as np
+
+from posec.solvers.ibr_bagg import random_idx_max
+from posec.pyagg import AGG_File
 import time
-from pyagg import _delta, AGG_File
 
 logger = logging.getLogger(__name__)
 
-
-def random_pure_strategy(agg):
+def uniform_mixed_strategy(agg):
     strategies = []
     for size in agg.aSizes:
-        strategy = _delta(size, random.randrange(size))
+        strategy = [1. / size] * size
         strategies.append(strategy)
     return strategies
 
+def normalize(v):
+    norm=np.linalg.norm(v, ord=1)
+    return v/norm
 
-def idx_maxes(l):
-    m = max(l)
-    return [i for i,a in enumerate(l) if a == m]
+def normalize_model(model):
+    return map(normalize, model)
 
-
-def random_idx_max(l):
-    return random.choice(idx_maxes(l))
-
-
-def IBR(agg, seed=None, output=None, cutoff=3600):
+def FP(agg, seed=None, output=None, cutoff=3600):
     start = time.time()
 
     random.seed(seed)
@@ -42,28 +41,27 @@ def IBR(agg, seed=None, output=None, cutoff=3600):
             f.write(','.join((str(max_regret), str(max_regret/agg.max_payoff), str(elapsed)))+'\n')
             logger.info("Weighted max regret overall is %s. Time elapsed %.2f" % (weighted_max_regret, elapsed))
 
-        strategy = random_pure_strategy(agg)
+        model = uniform_mixed_strategy(agg)
+        strategy = model
         iteration = 0
         while not agg.isNE(strategy) and time.time() - start < cutoff:
+            # Get everyone's current regret given the model's count frequencies as empirical mixed strategy
             regrets = agg.regret(strategy, asLL=True)
             log_strategy(strategy, regrets=regrets)
 
-            # Pick a random player
-            player_idx = random.randrange(len(agg.N))
+            # Calculate each player's best response, update that count by 1. Break ties randomly
+            for i in range(len(agg.N)):
+                best_response = random_idx_max(regrets[i])
+                model[i][best_response] += 1
 
-            # Calculate best response for this player - the action with the highest regret (random in ties)
-            player_regret = regrets[player_idx]
-            best_response = random_idx_max(player_regret)
-
-            # Update the strategy profile
-            strategy[player_idx] = _delta(agg.aSizes[player_idx], best_response)
+            strategy = normalize_model(model)
 
             iteration += 1
 
         log_strategy(strategy)
         # Either cutoff or NE
         if agg.isNE(strategy):
-            logger.info("NE FOUND at iteration %d after %.2f" % (iteration, time.time()-start))
+            logger.info("NE FOUND at iteration %d after %.2f" % (iteration, time.time() - start))
             logger.info(strategy)
         else:
             logger.info("Cutoff reached")
@@ -74,4 +72,4 @@ if __name__ == '__main__':
     for n in range(1,11):
         path = '/ubc/cs/research/arrow/newmanne/positronic-economist/baggs/TWO_APPROVAL/'
         agg = AGG_File(path + 'two_approval_10_' + str(n) + '_1_FINAL.bagg')
-        IBR(agg, seed=1)
+        FP(agg)

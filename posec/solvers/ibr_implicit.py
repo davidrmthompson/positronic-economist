@@ -1,10 +1,12 @@
 import random
 import os
 import logging
-from posec_core import ProjectedMechanism, cputime
+from posec.posec_core import ProjectedMechanism, cputime
 import sys
 
 logger = logging.getLogger(__name__)
+
+# Note: you probably want to be using IBR_BAGG instead. It's more tested and faster and does the same thing.
 
 # Introduce class so we can add attributes to dicts
 class MyDict(dict):
@@ -56,10 +58,6 @@ def IBR(setting, m, seed=None, output=None, stop_cycle=True,cutoff=3600):
         # Calculate regret and best responses
         max_regret = sys.maxint
 
-        if stop_cycle:
-            seen = set()
-            seen.add(tuple(strategies[k] for k in range(setting.n)))
-
         while max_regret != 0:
             if cputime() - start > cutoff:
                 print "OUT OF TIME"
@@ -89,15 +87,6 @@ def IBR(setting, m, seed=None, output=None, stop_cycle=True,cutoff=3600):
             # Everyone does their best response
             for i in range(setting.n):
                 strategies[i] = max(player_to_action_to_regret[i].iteritems(), key=lambda item: item[1])[0]
-
-            # Check for loops
-            if stop_cycle:
-                identifier = tuple(strategies[k] for k in range(setting.n))
-                if identifier in seen:
-                    logger.info("LOOP DETECTED, randomizing strategies")
-                    strategies = make_random_pure_strategies(setting, actions)
-                else:
-                    seen.add(identifier)
 
         if max_regret == 0:
             print "Converged to equilibrium! Yay!"
